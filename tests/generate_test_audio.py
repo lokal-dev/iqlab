@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.io import wavfile
+import scipy.signal as signal
 import os
 
 def generate_noise(duration: float, sample_rate: int, low_freq: float, high_freq: float) -> np.ndarray:
@@ -23,52 +24,69 @@ def generate_noise(duration: float, sample_rate: int, low_freq: float, high_freq
 def generate_vowel(duration: float, sample_rate: int, f0: float) -> np.ndarray:
     """Generates a synthetic vowel-like sound (sine wave + harmonics)."""
     t = np.linspace(0, duration, int(duration * sample_rate), endpoint=False)
-    # Fundamental frequency + 3 harmonics
     y = np.sin(2 * np.pi * f0 * t) * 0.3
     y += np.sin(2 * np.pi * (f0 * 2) * t) * 0.15
     y += np.sin(2 * np.pi * (f0 * 3) * t) * 0.08
     y += np.sin(2 * np.pi * (f0 * 4) * t) * 0.04
-    # Fade in/out
     fade = int(0.02 * sample_rate)
     window = np.ones_like(y)
     window[:fade] = np.linspace(0, 1, fade)
     window[-fade:] = np.linspace(1, 0, fade)
     return y * window
 
-def generate_synthetic_word(is_correct_ha: bool, sample_rate: int = 16000) -> np.ndarray:
+def generate_resonance_vowel(duration: float, sample_rate: int, f0: float, f1: float, f2: float) -> np.ndarray:
     """
-    Synthesizes the word 'Al-Hamdu'.
-    If is_correct_ha is True, the fricative part is high-frequency pharyngeal 'ح'.
-    If False, the fricative part is low-frequency glottal 'ه'.
+    Generates a synthetic vowel with specific F1 and F2 formants
+    using two second-order bandpass resonators (IIR filters).
     """
-    # 1. 'A' vowel (150ms)
-    vowel_a = generate_vowel(0.15, sample_rate, f0=150.0)
+    samples = int(duration * sample_rate)
     
-    # 2. 'l' consonant (80ms)
+    # 1. Generate excitation signal (pulse train at f0 + soft white noise)
+    excitation = np.zeros(samples)
+    period = int(sample_rate / f0)
+    excitation[::period] = 1.0
+    excitation += np.random.normal(0, 0.05, samples)
+    
+    # 2. Filter with F1 resonator (bandwidth r=0.95)
+    r = 0.95
+    theta1 = 2 * np.pi * f1 / sample_rate
+    b1 = [1.0]
+    a1 = [1.0, -2 * r * np.cos(theta1), r * r]
+    y1 = signal.lfilter(b1, a1, excitation)
+    
+    # 3. Filter with F2 resonator
+    theta2 = 2 * np.pi * f2 / sample_rate
+    b2 = [1.0]
+    a2 = [1.0, -2 * r * np.cos(theta2), r * r]
+    y2 = signal.lfilter(b2, a2, y1)
+    
+    # Normalize
+    y2 = y2 / np.max(np.abs(y2)) * 0.3
+    
+    # Fade in/out
+    fade = int(0.02 * sample_rate)
+    window = np.ones_like(y2)
+    window[:fade] = np.linspace(0, 1, fade)
+    window[-fade:] = np.linspace(1, 0, fade)
+    
+    return y2 * window
+
+def generate_synthetic_word(is_correct_ha: bool, sample_rate: int = 16000) -> np.ndarray:
+    """Synthesizes the word 'Al-Hamdu' for 'ح' vs 'ه' testing."""
+    vowel_a = generate_vowel(0.15, sample_rate, f0=150.0)
     consonant_l = generate_vowel(0.08, sample_rate, f0=120.0) * 0.5
     
-    # 3. 'h' / 'ħ' fricative (200ms)
     if is_correct_ha:
-        # 'ح' (pharyngeal) -> energy in 1500 - 4500 Hz
         fricative = generate_noise(0.20, sample_rate, 1800.0, 4000.0)
     else:
-        # 'ه' (glottal) -> energy in 100 - 900 Hz
         fricative = generate_noise(0.20, sample_rate, 100.0, 800.0)
         
-    # 4. 'a' vowel (150ms)
     vowel_a2 = generate_vowel(0.15, sample_rate, f0=140.0)
-    
-    # 5. 'm' nasal (100ms)
     nasal_m = generate_vowel(0.10, sample_rate, f0=100.0) * 0.4
-    
-    # 6. 'd' stop (50ms silence + 30ms burst)
     stop_silence = np.zeros(int(0.05 * sample_rate))
     stop_burst = np.random.normal(0, 0.05, int(0.03 * sample_rate))
-    
-    # 7. 'u' vowel (150ms)
     vowel_u = generate_vowel(0.15, sample_rate, f0=130.0)
     
-    # Concatenate all parts
     audio = np.concatenate([
         vowel_a,
         consonant_l,
@@ -80,29 +98,71 @@ def generate_synthetic_word(is_correct_ha: bool, sample_rate: int = 16000) -> np
         vowel_u
     ])
     
-    # Add a bit of silence at the start and end (100ms each)
+    silence = np.zeros(int(0.1 * sample_rate))
+    return np.concatenate([silence, audio, silence])
+
+def generate_synthetic_ayn_word(is_correct_ayn: bool, sample_rate: int = 16000) -> np.ndarray:
+    """
+    Synthesizes the word 'Al-Alamin' for 'ع' vs 'أ' testing.
+    If is_correct_ayn is True, F1/F2 have a small gap (constricted).
+    If False, F1/F2 have a wide gap (open glottal).
+    """
+    # 'Al-' prefix
+    vowel_a = generate_vowel(0.12, sample_rate, f0=140.0)
+    consonant_l = generate_vowel(0.08, sample_rate, f0=120.0) * 0.5
+    
+    # 'Ayn' consonant / vowel transition (250ms)
+    if is_correct_ayn:
+        # 'ع' (pharyngeal) -> F1 elevated, F2 depressed (gap = 400Hz)
+        vowel_ayn = generate_resonance_vowel(0.25, sample_rate, f0=130.0, f1=800.0, f2=1200.0)
+    else:
+        # 'أ' (glottal) -> F1 normal, F2 normal (gap = 1000Hz)
+        vowel_ayn = generate_resonance_vowel(0.25, sample_rate, f0=130.0, f1=500.0, f2=1500.0)
+        
+    # '-lamin' suffix
+    consonant_l2 = generate_vowel(0.08, sample_rate, f0=120.0) * 0.5
+    vowel_aa = generate_vowel(0.15, sample_rate, f0=110.0)
+    nasal_m = generate_vowel(0.10, sample_rate, f0=100.0) * 0.4
+    vowel_ii = generate_vowel(0.15, sample_rate, f0=95.0)
+    nasal_n = generate_vowel(0.12, sample_rate, f0=90.0) * 0.4
+    
+    audio = np.concatenate([
+        vowel_a,
+        consonant_l,
+        vowel_ayn,
+        consonant_l2,
+        vowel_aa,
+        nasal_m,
+        vowel_ii,
+        nasal_n
+    ])
+    
     silence = np.zeros(int(0.1 * sample_rate))
     return np.concatenate([silence, audio, silence])
 
 def create_test_suite_audio():
     os.makedirs("/home/backdoor/projects/iqlab-dev/tests", exist_ok=True)
-    
     sample_rate = 16000
     
-    # Generate correct 'ح' test file
+    # 1. 'ح' vs 'ه'
     correct_audio = generate_synthetic_word(is_correct_ha=True, sample_rate=sample_rate)
     correct_path = "/home/backdoor/projects/iqlab-dev/tests/test_ha_correct.wav"
-    # Convert to 16-bit PCM integer WAV
-    correct_pcm = (correct_audio * 32767).astype(np.int16)
-    wavfile.write(correct_path, sample_rate, correct_pcm)
-    print(f"Generated: {correct_path}")
+    wavfile.write(correct_path, sample_rate, (correct_audio * 32767).astype(np.int16))
     
-    # Generate incorrect 'ه' test file
     incorrect_audio = generate_synthetic_word(is_correct_ha=False, sample_rate=sample_rate)
     incorrect_path = "/home/backdoor/projects/iqlab-dev/tests/test_ha_incorrect.wav"
-    incorrect_pcm = (incorrect_audio * 32767).astype(np.int16)
-    wavfile.write(incorrect_path, sample_rate, incorrect_pcm)
-    print(f"Generated: {incorrect_path}")
+    wavfile.write(incorrect_path, sample_rate, (incorrect_audio * 32767).astype(np.int16))
+    
+    # 2. 'ع' vs 'أ'
+    ayn_correct_audio = generate_synthetic_ayn_word(is_correct_ayn=True, sample_rate=sample_rate)
+    ayn_correct_path = "/home/backdoor/projects/iqlab-dev/tests/test_ayn_correct.wav"
+    wavfile.write(ayn_correct_path, sample_rate, (ayn_correct_audio * 32767).astype(np.int16))
+    
+    ayn_incorrect_audio = generate_synthetic_ayn_word(is_correct_ayn=False, sample_rate=sample_rate)
+    ayn_incorrect_path = "/home/backdoor/projects/iqlab-dev/tests/test_ayn_incorrect.wav"
+    wavfile.write(ayn_incorrect_path, sample_rate, (ayn_incorrect_audio * 32767).astype(np.int16))
+    
+    print("All synthetic test audio files generated successfully!")
 
 if __name__ == "__main__":
     create_test_suite_audio()

@@ -10,7 +10,7 @@ from backend.db import get_db, init_db
 from backend.models import IdentifyResponse, VerseResponse
 from backend.asr import transcribe_audio
 from backend.search import search_verses
-from backend.makhraj import analyze_makhraj_ha
+from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn
 
 app = FastAPI(title="iq.lab API")
 
@@ -88,27 +88,25 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
             tajweed_html = verse.tajweed_html
             
             if verse.surah_number == 1 and verse.ayah_number == 2:
-                # Find the word "الحمد" or "حمد" in the ASR word list
-                target_word = None
+                # ─── 1. Makhraj 'ح' in 'الحمد' ───
+                target_word_ha = None
                 for w in asr_result["words"]:
                     clean_w = w["word"].strip()
                     if "حمد" in clean_w:
-                        target_word = w
+                        target_word_ha = w
                         break
                 
-                if target_word:
-                    # Run the DSP analysis on the WAV file
-                    makhraj_res = analyze_makhraj_ha(
+                if target_word_ha:
+                    makhraj_res_ha = analyze_makhraj_ha(
                         temp_trimmed_path,
-                        start_sec=target_word["start"],
-                        end_sec=target_word["end"]
+                        start_sec=target_word_ha["start"],
+                        end_sec=target_word_ha["end"]
                     )
                     
-                    if makhraj_res["status"] in ["pass", "fail"]:
-                        status = makhraj_res["status"]
-                        msg = makhraj_res["message"]
+                    if makhraj_res_ha["status"] in ["pass", "fail"]:
+                        status = makhraj_res_ha["status"]
+                        msg = makhraj_res_ha["message"]
                         
-                        # Inject the highlight span into the Uthmani text
                         if status == "pass":
                             highlighted = (
                                 f'<span class="makhraj-highlight makhraj-pass" '
@@ -120,8 +118,39 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                                 f'title="{msg}">ح</span>'
                             )
                         
-                        # Replace the single 'ح' in "الْحَمْدُ"
-                        tajweed_html = verse.tajweed_html.replace('ح', highlighted)
+                        tajweed_html = tajweed_html.replace('ح', highlighted)
+                
+                # ─── 2. Makhraj 'ع' in 'العالمين' ───
+                target_word_ayn = None
+                for w in asr_result["words"]:
+                    clean_w = w["word"].strip()
+                    if "عالم" in clean_w or "الم" in clean_w:
+                        target_word_ayn = w
+                        break
+                
+                if target_word_ayn:
+                    makhraj_res_ayn = analyze_makhraj_ayn(
+                        temp_trimmed_path,
+                        start_sec=target_word_ayn["start"],
+                        end_sec=target_word_ayn["end"]
+                    )
+                    
+                    if makhraj_res_ayn["status"] in ["pass", "fail"]:
+                        status = makhraj_res_ayn["status"]
+                        msg = makhraj_res_ayn["message"]
+                        
+                        if status == "pass":
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-pass" '
+                                f'title="{msg}">ع</span>'
+                            )
+                        else:
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-fail" '
+                                f'title="{msg}">ع</span>'
+                            )
+                        
+                        tajweed_html = tajweed_html.replace('ع', highlighted)
             
             response_data.append(VerseResponse(
                 id=verse.id,
