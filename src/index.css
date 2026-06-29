@@ -1208,3 +1208,260 @@ input, textarea {
   cursor: help;
 }
 
+/* ── Combined Makhraj Panel (v2) ───────────────────────────────── */
+
+/* Warning border for cards with makhraj errors */
+.verse-card.has-makhraj-errors {
+  border-color: oklch(from var(--semantic-warning) l c h / 0.25);
+  box-shadow: 0 4px 20px oklch(from var(--black) l c h / 0.3),
+              0 0 15px oklch(from var(--semantic-warning) l c h / 0.05);
+}
+
+/* Summary badge shown in collapsed card */
+.makhraj-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-full);
+  margin-bottom: var(--sp-2);
+  width: fit-content;
+}
+
+.makhraj-summary-badge.error {
+  background: var(--semantic-warning-bg);
+  color: var(--semantic-warning);
+  border: 1px solid oklch(from var(--semantic-warning) l c h / 0.2);
+}
+
+.makhraj-summary-badge.success {
+  background: oklch(from var(--semantic-success) l c h / 0.08);
+  color: var(--semantic-success);
+  border: 1px solid oklch(from var(--semantic-success) l c h / 0.2);
+}
+
+.makhraj-summary-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.verse-card-collapsed-footer {
+  margin-top: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+/* Expanded Feedback Panel Container */
+.makhraj-feedback-panel {
+  background: oklch(from var(--white) l c h / 0.02);
+  border: 1px solid oklch(from var(--white) l c h / 0.08);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  backdrop-filter: blur(10px);
+}
+
+.makhraj-panel-header {
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid oklch(from var(--white) l c h / 0.06);
+}
+
+.makhraj-score-container {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+/* Circular Progress Ring using Conic Gradient */
+.makhraj-score-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-sm);
+  color: var(--white);
+  position: relative;
+  background: conic-gradient(
+    var(--theme-accent) calc(var(--score-pct) * 1%),
+    oklch(from var(--white) l c h / 0.1) 0
+  );
+}
+
+/* Inner circle to make it a ring */
+.makhraj-score-circle::before {
+  content: '';
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-card);
+}
+
+.makhraj-score-val {
+  position: relative;
+  z-index: 1;
+}
+
+.makhraj-score-meta h4 {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--white);
+  margin: 0 0 2px 0;
+}
+
+.makhraj-score-meta p {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Feedback List & Items */
+.makhraj-feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.makhraj-feedback-item {
+  background: oklch(from var(--white) l c h / 0.01);
+  border-left: 3px solid;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.makhraj-feedback-item.pass {
+  border-left-color: var(--semantic-success);
+  background: oklch(from var(--semantic-success) l c h / 0.02);
+}
+
+.makhraj-feedback-item.fail {
+  border-left-color: var(--semantic-warning);
+  background: oklch(from var(--semantic-warning) l c h / 0.02);
+}
+
+.makhraj-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.makhraj-letter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-family: var(--font-arabic);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+}
+
+.makhraj-letter-badge.pass {
+  background: var(--semantic-success);
+  color: var(--black);
+}
+
+.makhraj-letter-badge.fail {
+  background: var(--semantic-warning);
+  color: var(--black);
+}
+
+.makhraj-status-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+
+.makhraj-status-label.pass {
+  color: var(--semantic-success);
+}
+
+.makhraj-status-label.fail {
+  color: var(--semantic-warning);
+}
+
+.makhraj-item-message {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--sp-3) 0;
+}
+
+/* Audio Compare Buttons */
+.makhraj-item-controls {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.audio-compare-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  border: 1px solid oklch(from var(--white) l c h / 0.1);
+  background: oklch(from var(--white) l c h / 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.audio-compare-btn:hover {
+  background: oklch(from var(--white) l c h / 0.08);
+  color: var(--white);
+  border-color: oklch(from var(--white) l c h / 0.2);
+}
+
+.audio-compare-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Specific button themes */
+.audio-compare-btn.example {
+  border-color: oklch(from var(--theme-accent) l c h / 0.2);
+  color: var(--theme-accent);
+}
+
+.audio-compare-btn.example:hover {
+  background: oklch(from var(--theme-accent) l c h / 0.1);
+  border-color: var(--theme-accent);
+}
+
+.audio-compare-btn.user {
+  border-color: oklch(from var(--white) l c h / 0.15);
+  color: var(--white);
+}
+
+.audio-compare-btn.user:hover {
+  background: oklch(from var(--white) l c h / 0.12);
+}
+
+/* Slide Down Animation */
+.animate-slide-down {
+  animation: slideDown var(--dur-normal) var(--ease-out) forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+

@@ -110,12 +110,16 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         if status == "pass":
                             highlighted = (
                                 f'<span class="makhraj-highlight makhraj-pass" '
-                                f'title="{msg}">ح</span>'
+                                f'title="{msg}" '
+                                f'data-start="{target_word_ha["start"]}" '
+                                f'data-end="{target_word_ha["end"]}">ح</span>'
                             )
                         else:
                             highlighted = (
                                 f'<span class="makhraj-highlight makhraj-fail" '
-                                f'title="{msg}">ح</span>'
+                                f'title="{msg}" '
+                                f'data-start="{target_word_ha["start"]}" '
+                                f'data-end="{target_word_ha["end"]}">ح</span>'
                             )
                         
                         tajweed_html = tajweed_html.replace('ح', highlighted)
@@ -142,12 +146,16 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         if status == "pass":
                             highlighted = (
                                 f'<span class="makhraj-highlight makhraj-pass" '
-                                f'title="{msg}">ع</span>'
+                                f'title="{msg}" '
+                                f'data-start="{target_word_ayn["start"]}" '
+                                f'data-end="{target_word_ayn["end"]}">ع</span>'
                             )
                         else:
                             highlighted = (
                                 f'<span class="makhraj-highlight makhraj-fail" '
-                                f'title="{msg}">ع</span>'
+                                f'title="{msg}" '
+                                f'data-start="{target_word_ayn["start"]}" '
+                                f'data-end="{target_word_ayn["end"]}">ع</span>'
                             )
                         
                         tajweed_html = tajweed_html.replace('ع', highlighted)

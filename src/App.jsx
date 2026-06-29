@@ -137,6 +137,153 @@ function CopyButton({ verse }) {
   );
 }
 
+/* ── parseMakhrajFeedback ────────────────────────────────────── */
+function parseMakhrajFeedback(html) {
+  if (!html) return [];
+  // Matches: <span class="makhraj-highlight makhraj-pass" title="Message" data-start="1.2" data-end="1.8">ح</span>
+  const regex = /<span class="makhraj-highlight\s+makhraj-(pass|fail)"\s+title="([^"]+)"\s+data-start="([^"]+)"\s+data-end="([^"]+)">([^<]+)<\/span>/g;
+  const feedback = [];
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    feedback.push({
+      status: match[1],   // 'pass' or 'fail'
+      message: match[2],  // The playful feedback message
+      start: match[3],    // Start timestamp
+      end: match[4],      // End timestamp
+      letter: match[5],   // The letter (ح or ع)
+    });
+  }
+  return feedback;
+}
+
+/* ── AudioCompareButton ──────────────────────────────────────── */
+function AudioCompareButton({ label, audioUrl, start, end, type }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
+  const timerRef = useRef(null);
+
+  const handlePlay = (e) => {
+    e.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    } else {
+      audio.currentTime = start ? parseFloat(start) : 0;
+      audio.play();
+      setIsPlaying(true);
+
+      if (end) {
+        const duration = (parseFloat(end) - parseFloat(start)) * 1000;
+        timerRef.current = setTimeout(() => {
+          audio.pause();
+          setIsPlaying(false);
+        }, duration);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  return (
+    <button className={`audio-compare-btn ${type}`} onClick={handlePlay} type="button">
+      <audio ref={audioRef} src={audioUrl} onEnded={() => setIsPlaying(false)} preload="auto" />
+      {isPlaying ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      )}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/* ── MakhrajFeedbackPanel ────────────────────────────────────── */
+function MakhrajFeedbackPanel({ feedback, audioBlob }) {
+  const [audioUrl, setAudioUrl] = useState(null);
+
+  useEffect(() => {
+    if (!audioBlob) return;
+    const url = URL.createObjectURL(audioBlob);
+    setAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [audioBlob]);
+
+  // Calculate Makhraj Score
+  const total = feedback.length;
+  const passed = feedback.filter(f => f.status === 'pass').length;
+  const score = total > 0 ? Math.round((passed / total) * 100) : 100;
+
+  // Map letters to their local example audios
+  const exampleAudioMap = {
+    'ح': '/audio/examples/ha.mp3',
+    'ع': '/audio/examples/ayn.mp3'
+  };
+
+  return (
+    <div className="makhraj-feedback-panel animate-slide-down">
+      <div className="makhraj-panel-header">
+        <div className="makhraj-score-container">
+          <div className="makhraj-score-circle" style={{ '--score-pct': score }}>
+            <span className="makhraj-score-val">{score}%</span>
+          </div>
+          <div className="makhraj-score-meta">
+            <h4>Evaluasi Makhraj</h4>
+            <p>{passed} dari {total} huruf tepat</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="makhraj-feedback-list">
+        {feedback.map((item, index) => (
+          <div key={index} className={`makhraj-feedback-item ${item.status}`}>
+            <div className="makhraj-item-header">
+              <span className={`makhraj-letter-badge ${item.status}`}>{item.letter}</span>
+              <span className={`makhraj-status-label ${item.status}`}>
+                {item.status === 'pass' ? 'Fasih' : 'Hampir Tepat'}
+              </span>
+            </div>
+            <p className="makhraj-item-message">{item.message}</p>
+            
+            <div className="makhraj-item-controls">
+              {/* Correct Example Audio */}
+              {exampleAudioMap[item.letter] && (
+                <AudioCompareButton 
+                  label="Dengarkan Contoh" 
+                  audioUrl={exampleAudioMap[item.letter]} 
+                  type="example"
+                />
+              )}
+              {/* User's own audio segment */}
+              {audioUrl && (
+                <AudioCompareButton 
+                  label="Suaramu" 
+                  audioUrl={audioUrl} 
+                  start={item.start} 
+                  end={item.end} 
+                  type="user"
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Waqf Legend ─────────────────────────────────────────────── */
 function WaqfLegend() {
   return (
@@ -155,10 +302,13 @@ function WaqfLegend() {
 }
 
 /* ── Verse Card ──────────────────────────────────────────────── */
-function VerseCard({ verse, isSelected, onSelect }) {
+function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
+  const feedback = parseMakhrajFeedback(verse.tajweedHtml);
+  const hasErrors = feedback.some(f => f.status === 'fail');
+
   return (
     <article
-      className={`verse-card${isSelected ? ' selected' : ''}`}
+      className={`verse-card${isSelected ? ' selected' : ''}${hasErrors ? ' has-makhraj-errors' : ''}`}
       onClick={() => !isSelected && onSelect(verse)}
       role="button"
       tabIndex={0}
@@ -193,14 +343,36 @@ function VerseCard({ verse, isSelected, onSelect }) {
         dangerouslySetInnerHTML={{ __html: verse.tajweedHtml }}
       />
 
-      {/* ── Collapsed hint ── */}
+      {/* ── Collapsed hint & Makhraj Badge ── */}
       {!isSelected && (
-        <p className="verse-tap-hint">Ketuk untuk terjemahan &amp; panduan waqf</p>
+        <div className="verse-card-collapsed-footer">
+          {feedback.length > 0 && (
+            <div className={`makhraj-summary-badge ${hasErrors ? 'error' : 'success'}`}>
+              {hasErrors ? (
+                <>
+                  <IconAlertTriangle />
+                  <span>Ada catatan makhraj! Ketuk untuk detail</span>
+                </>
+              ) : (
+                <>
+                  <IconCheck />
+                  <span>Makhraj 100% fasih!</span>
+                </>
+              )}
+            </div>
+          )}
+          <p className="verse-tap-hint">Ketuk untuk terjemahan &amp; evaluasi makhraj</p>
+        </div>
       )}
 
-      {/* ── Expanded: translation + waqf legend — only revealed on tap ── */}
+      {/* ── Expanded: makhraj panel + translation + waqf legend ── */}
       {isSelected && (
         <div className="verse-expanded" role="region" aria-label="Detail ayat">
+          {/* ── Combined Makhraj Panel (Option B & C) ── */}
+          {feedback.length > 0 && (
+            <MakhrajFeedbackPanel feedback={feedback} audioBlob={audioBlob} />
+          )}
+
           <p className="verse-translation">{verse.translation}</p>
           <WaqfLegend />
           <div className="verse-card-footer">
@@ -592,6 +764,7 @@ export default function App() {
                     verse={verse}
                     isSelected={selectedVerse?.id === verse.id}
                     onSelect={handleVerseSelect}
+                    audioBlob={activeAudioBlob}
                   />
                 ))}
 
@@ -614,6 +787,7 @@ export default function App() {
                             verse={verse}
                             isSelected={selectedVerse?.id === verse.id}
                             onSelect={handleVerseSelect}
+                            audioBlob={activeAudioBlob}
                           />
                         ))}
                       </div>
