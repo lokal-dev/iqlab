@@ -1,0 +1,22 @@
+[Unit]
+Description=iq.lab FastAPI Backend
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=backdoor
+WorkingDirectory=/home/backdoor/projects/iqlab
+Environment="DATABASE_URL=postgresql://postgres:postgres@localhost:5432/iqlab"
+Environment="WHISPER_MODEL=small"
+ExecStart=/home/backdoor/projects/iqlab/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5s
+
+# Keep stdout/stderr in journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=iqlab-api
+
+[Install]
+WantedBy=multi-user.target
