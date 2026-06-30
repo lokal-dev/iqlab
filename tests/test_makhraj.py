@@ -4,7 +4,7 @@ import sys
 # Add backend to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn
+from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn, analyze_makhraj_sad
 from tests.generate_test_audio import create_test_suite_audio
 
 def run_tests():
@@ -68,6 +68,33 @@ def run_tests():
     print(f"  Gap:     {ayn_incorrect_result.get('gap')} Hz")
     print(f"  Message: {ayn_incorrect_result['message']}")
     assert ayn_incorrect_result["status"] == "fail", f"Expected 'fail', got '{ayn_incorrect_result['status']}'"
+    
+    # ─── SECTION 3: 'ص' vs 'س' (Spectral Centroid) ───
+    print("\n--- Testing 'ص' vs 'س' (Sad vs Sin) ---")
+    
+    # Test correct 'ص' pronunciation (Tafkhim / thick sibilant)
+    sad_correct_result = analyze_makhraj_sad(
+        "/home/backdoor/projects/iqlab-dev/tests/test_sad_correct.wav",
+        start_sec=0.1,
+        end_sec=1.1
+    )
+    print("\n[TEST] Correct 'ص' (thick) result:")
+    print(f"  Status:    {sad_correct_result['status']}")
+    print(f"  Centroid:  {sad_correct_result.get('centroid')} Hz")
+    print(f"  Message:   {sad_correct_result['message']}")
+    assert sad_correct_result["status"] == "pass", f"Expected 'pass', got '{sad_correct_result['status']}'"
+    
+    # Test incorrect 'س' pronunciation (Tarqiq / thin sibilant)
+    sad_incorrect_result = analyze_makhraj_sad(
+        "/home/backdoor/projects/iqlab-dev/tests/test_sad_incorrect.wav",
+        start_sec=0.1,
+        end_sec=1.1
+    )
+    print("\n[TEST] Incorrect 'س' (thin) result:")
+    print(f"  Status:    {sad_incorrect_result['status']}")
+    print(f"  Centroid:  {sad_incorrect_result.get('centroid')} Hz")
+    print(f"  Message:   {sad_incorrect_result['message']}")
+    assert sad_incorrect_result["status"] == "fail", f"Expected 'fail', got '{sad_incorrect_result['status']}'"
     
     print("\n✅ ALL TESTS PASSED SUCCESSFULLY!")
 

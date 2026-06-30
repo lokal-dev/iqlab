@@ -250,3 +250,101 @@ def analyze_makhraj_ayn(wav_path: str, start_sec: float, end_sec: float, relativ
     except Exception as e:
         return {"status": "error", "message": f"DSP processing error: {str(e)}"}
 
+
+def analyze_makhraj_sad(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ص' (Sad) vs 'س' (Sin) in the audio segment.
+    Uses Spectral Centroid to measure the thickness (Tafkhim/velarization) of the sibilant.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "centroid": float,
+            "message": str
+        }
+    """
+    try:
+        if not os.path.exists(wav_path):
+            return {"status": "error", "centroid": 0.0, "message": "Audio file not found"}
+
+        # 1. Load WAV file (16kHz, mono, 16-bit PCM expected)
+        sample_rate, data = wavfile.read(wav_path)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+            
+        # 2. Extract the word segment
+        start_sample = int(start_sec * sample_rate)
+        end_sample = int(end_sec * sample_rate)
+        start_sample = max(0, start_sample)
+        end_sample = min(len(data), end_sample)
+        
+        if end_sample - start_sample < sample_rate * 0.1:  # Less than 100ms
+            return {"status": "error", "centroid": 0.0, "message": "Segment too short"}
+            
+        word_audio = data[start_sample:end_sample]
+        
+        # 3. Locate the sibilant segment (high ZCR, high energy)
+        search_start = int(len(word_audio) * max(0.0, relative_pos - 0.25))
+        search_end = int(len(word_audio) * min(1.0, relative_pos + 0.25))
+        frame_size = int(0.025 * sample_rate)  # 25ms window
+        hop_size = frame_size // 2
+        
+        best_sibilant_score = -1
+        best_frame = None
+        
+        for i in range(search_start, search_end - frame_size, hop_size):
+            frame = word_audio[i:i+frame_size]
+            
+            # Short-Time Energy (STE)
+            ste = np.sum(frame ** 2) / frame_size
+            
+            # Zero Crossing Rate (ZCR)
+            zero_crossings = np.nonzero(np.diff(np.sign(frame)))[0]
+            zcr = len(zero_crossings) / frame_size
+            
+            # Sibilants have extremely high ZCR (typically > 0.25 at 16kHz) and high energy
+            if ste > 0.0005:
+                score = zcr * ste
+                if score > best_sibilant_score:
+                    best_sibilant_score = score
+                    best_frame = frame
+                    
+        if best_frame is None:
+            return {"status": "error", "centroid": 0.0, "message": "Could not isolate sibilant segment"}
+            
+        # 4. Compute Spectral Centroid
+        # Apply Hamming window to reduce spectral leakage
+        windowed_frame = best_frame * np.hamming(len(best_frame))
+        fft_data = np.abs(np.fft.rfft(windowed_frame))
+        frequencies = np.fft.rfftfreq(len(windowed_frame), 1.0 / sample_rate)
+        
+        sum_fft = np.sum(fft_data)
+        if sum_fft == 0:
+            return {"status": "error", "centroid": 0.0, "message": "Silent frame"}
+            
+        centroid = float(np.sum(frequencies * fft_data) / sum_fft)
+        
+        # 5. Differentiate Sad vs Sin
+        # Plain 'س' has a very high centroid (typically > 5000 Hz)
+        # Emphatic 'ص' has a lower centroid (typically 2000 - 4500 Hz) due to Tafkhim
+        threshold = 4900.0
+        
+        if centroid < threshold:
+            return {
+                "status": "pass",
+                "centroid": round(centroid, 1),
+                "message": f"Makhraj Sempurna! Lafal 'ص' tebal dan tepat (Tafkhim) (centroid: {centroid:.1f}Hz)."
+            }
+        else:
+            return {
+                "status": "fail",
+                "centroid": round(centroid, 1),
+                "message": f"Hampir tepat! Huruf 'ص' terdengar tipis seperti 'س'. Coba tebalkan dengan mengangkat pangkal lidah dan penuhi rongga mulut (centroid: {centroid:.1f}Hz)."
+            }
+    except Exception as e:
+        return {"status": "error", "centroid": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+

@@ -229,7 +229,8 @@ function MakhrajFeedbackPanel({ feedback, audioBlob }) {
   // Map letters to their local example audios
   const exampleAudioMap = {
     'ح': '/audio/examples/ha.mp3',
-    'ع': '/audio/examples/ayn.mp3'
+    'ع': '/audio/examples/ayn.mp3',
+    'ص': '/audio/examples/sad.mp3'
   };
 
   return (

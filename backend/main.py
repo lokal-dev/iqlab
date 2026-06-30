@@ -10,7 +10,7 @@ from backend.db import get_db, init_db
 from backend.models import IdentifyResponse, VerseResponse
 from backend.asr import transcribe_audio
 from backend.search import search_verses, normalize_arabic
-from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn
+from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn, analyze_makhraj_sad
 
 app = FastAPI(title="iq.lab API")
 
@@ -87,11 +87,12 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
             # ── Generalized Makhraj Grading ──
             html_words = verse.tajweed_html.split()
             for idx, html_word in enumerate(html_words):
-                # Check if this word contains 'ح' or 'ع'
+                # Check if this word contains 'ح' or 'ع' or 'ص'
                 has_ha = 'ح' in html_word
                 has_ayn = 'ع' in html_word
+                has_sad = 'ص' in html_word
                 
-                if not (has_ha or has_ayn):
+                if not (has_ha or has_ayn or has_sad):
                     continue
                     
                 # Normalize the Uthmani word for comparison
@@ -143,6 +144,21 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                                 f'data-end="{end_sec}">ع</span>'
                             )
                             html_words[idx] = html_word.replace('ع', highlighted, 1)
+                            
+                    elif has_sad:
+                        char_idx = norm_word.find('ص')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_sad(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ص</span>'
+                            )
+                            html_words[idx] = html_word.replace('ص', highlighted, 1)
             
             tajweed_html = " ".join(html_words)
             

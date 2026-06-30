@@ -140,6 +140,27 @@ def generate_synthetic_ayn_word(is_correct_ayn: bool, sample_rate: int = 16000) 
     silence = np.zeros(int(0.1 * sample_rate))
     return np.concatenate([silence, audio, silence])
 
+def generate_synthetic_sad_word(is_correct_sad: bool, sample_rate: int = 16000) -> np.ndarray:
+    """
+    Synthesizes a word containing 'ص' (Sad) vs 'س' (Sin) testing.
+    If is_correct_sad is True, the noise is band-limited to 2000-4200 Hz (Sad).
+    If False, the noise is band-limited to 5800-7800 Hz (Sin).
+    """
+    vowel_pre = generate_vowel(0.15, sample_rate, f0=130.0)
+    
+    if is_correct_sad:
+        # 'ص' (emphatic sibilant: lower frequency)
+        fricative = generate_noise(0.25, sample_rate, 2000.0, 4200.0)
+    else:
+        # 'س' (plain sibilant: higher frequency)
+        fricative = generate_noise(0.25, sample_rate, 5800.0, 7800.0)
+        
+    vowel_post = generate_vowel(0.15, sample_rate, f0=120.0)
+    
+    audio = np.concatenate([vowel_pre, fricative, vowel_post])
+    silence = np.zeros(int(0.1 * sample_rate))
+    return np.concatenate([silence, audio, silence])
+
 def create_test_suite_audio():
     os.makedirs("/home/backdoor/projects/iqlab-dev/tests", exist_ok=True)
     sample_rate = 16000
@@ -161,6 +182,15 @@ def create_test_suite_audio():
     ayn_incorrect_audio = generate_synthetic_ayn_word(is_correct_ayn=False, sample_rate=sample_rate)
     ayn_incorrect_path = "/home/backdoor/projects/iqlab-dev/tests/test_ayn_incorrect.wav"
     wavfile.write(ayn_incorrect_path, sample_rate, (ayn_incorrect_audio * 32767).astype(np.int16))
+    
+    # 3. 'ص' vs 'س'
+    sad_correct_audio = generate_synthetic_sad_word(is_correct_sad=True, sample_rate=sample_rate)
+    sad_correct_path = "/home/backdoor/projects/iqlab-dev/tests/test_sad_correct.wav"
+    wavfile.write(sad_correct_path, sample_rate, (sad_correct_audio * 32767).astype(np.int16))
+    
+    sad_incorrect_audio = generate_synthetic_sad_word(is_correct_sad=False, sample_rate=sample_rate)
+    sad_incorrect_path = "/home/backdoor/projects/iqlab-dev/tests/test_sad_incorrect.wav"
+    wavfile.write(sad_incorrect_path, sample_rate, (sad_incorrect_audio * 32767).astype(np.int16))
     
     print("All synthetic test audio files generated successfully!")
 
