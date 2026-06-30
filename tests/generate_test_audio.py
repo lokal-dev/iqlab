@@ -161,6 +161,60 @@ def generate_synthetic_sad_word(is_correct_sad: bool, sample_rate: int = 16000) 
     silence = np.zeros(int(0.1 * sample_rate))
     return np.concatenate([silence, audio, silence])
 
+def generate_synthetic_kha_word(type_kha: str, sample_rate: int = 16000) -> np.ndarray:
+    """
+    Synthesizes a word containing 'خ' (Kha) vs 'ك' (Kaf) / 'ه' (Haa) testing.
+    types: 'correct' (Kha), 'incorrect_kaf' (stop), 'incorrect_haa' (low-frequency glottal)
+    """
+    vowel_pre = generate_vowel(0.15, sample_rate, f0=140.0)
+    
+    if type_kha == 'correct':
+        # 'خ' (continuous velar noise)
+        fricative = generate_noise(0.25, sample_rate, 1200.0, 3200.0)
+        audio = np.concatenate([vowel_pre, fricative])
+    elif type_kha == 'incorrect_haa':
+        # 'ه' (low-frequency glottal noise, very quiet)
+        fricative = generate_noise(0.25, sample_rate, 100.0, 600.0) * 0.4
+        audio = np.concatenate([vowel_pre, fricative])
+    else:
+        # 'ك' (stop consonant: silence + burst)
+        silence_gap = np.zeros(int(0.08 * sample_rate))
+        burst = np.random.normal(0, 0.25, int(0.02 * sample_rate))
+        decay = np.random.normal(0, 0.02, int(0.15 * sample_rate))
+        audio = np.concatenate([vowel_pre, silence_gap, burst, decay])
+        
+    vowel_post = generate_vowel(0.15, sample_rate, f0=130.0)
+    audio = np.concatenate([audio, vowel_post])
+    silence = np.zeros(int(0.1 * sample_rate))
+    return np.concatenate([silence, audio, silence])
+
+def generate_synthetic_dhal_word(type_dhal: str, sample_rate: int = 16000) -> np.ndarray:
+    """
+    Synthesizes a word containing 'ذ' (Dhal) vs 'ز' (Zay) / 'د' (Dal) testing.
+    types: 'correct' (Dhal), 'incorrect_dal' (stop), 'incorrect_zay' (sibilant)
+    """
+    vowel_pre = generate_vowel(0.15, sample_rate, f0=135.0)
+    
+    if type_dhal == 'correct':
+        # 'ذ' (quiet voiced fricative: low amplitude)
+        fricative = generate_noise(0.20, sample_rate, 1000.0, 3000.0) * 0.08
+        audio = np.concatenate([vowel_pre, fricative])
+    elif type_dhal == 'incorrect_zay':
+        # 'ز' (loud voiced sibilant: high amplitude)
+        fricative = generate_noise(0.20, sample_rate, 3500.0, 7000.0) * 3.5
+        audio = np.concatenate([vowel_pre, fricative])
+    else:
+        # 'د' (stop consonant: silence + burst)
+        silence_gap = np.zeros(int(0.08 * sample_rate))
+        burst = np.random.normal(0, 0.2, int(0.02 * sample_rate))
+        decay = np.random.normal(0, 0.02, int(0.10 * sample_rate))
+        audio = np.concatenate([vowel_pre, silence_gap, burst, decay])
+        
+    vowel_post = generate_vowel(0.15, sample_rate, f0=125.0)
+    audio = np.concatenate([audio, vowel_post])
+    silence = np.zeros(int(0.1 * sample_rate))
+    return np.concatenate([silence, audio, silence])
+
 def create_test_suite_audio():
     os.makedirs("/home/backdoor/projects/iqlab-dev/tests", exist_ok=True)
     sample_rate = 16000
@@ -191,6 +245,22 @@ def create_test_suite_audio():
     sad_incorrect_audio = generate_synthetic_sad_word(is_correct_sad=False, sample_rate=sample_rate)
     sad_incorrect_path = "/home/backdoor/projects/iqlab-dev/tests/test_sad_incorrect.wav"
     wavfile.write(sad_incorrect_path, sample_rate, (sad_incorrect_audio * 32767).astype(np.int16))
+    
+    # 4. 'خ' vs 'ك' / 'ه'
+    wavfile.write("/home/backdoor/projects/iqlab-dev/tests/test_kha_correct.wav", sample_rate, 
+                  (generate_synthetic_kha_word('correct', sample_rate) * 32767).astype(np.int16))
+    wavfile.write("/home/backdoor/projects/iqlab-dev/tests/test_kha_incorrect_kaf.wav", sample_rate, 
+                  (generate_synthetic_kha_word('incorrect_kaf', sample_rate) * 32767).astype(np.int16))
+    wavfile.write("/home/backdoor/projects/iqlab-dev/tests/test_kha_incorrect_haa.wav", sample_rate, 
+                  (generate_synthetic_kha_word('incorrect_haa', sample_rate) * 32767).astype(np.int16))
+                  
+    # 5. 'ذ' vs 'ز' / 'د'
+    wavfile.write("/home/backdoor/projects/iqlab-dev/tests/test_dhal_correct.wav", sample_rate, 
+                  (generate_synthetic_dhal_word('correct', sample_rate) * 32767).astype(np.int16))
+    wavfile.write("/home/backdoor/projects/iqlab-dev/tests/test_dhal_incorrect_dal.wav", sample_rate, 
+                  (generate_synthetic_dhal_word('incorrect_dal', sample_rate) * 32767).astype(np.int16))
+    wavfile.write("/home/backdoor/projects/iqlab-dev/tests/test_dhal_incorrect_zay.wav", sample_rate, 
+                  (generate_synthetic_dhal_word('incorrect_zay', sample_rate) * 32767).astype(np.int16))
     
     print("All synthetic test audio files generated successfully!")
 

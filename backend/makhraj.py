@@ -348,3 +348,233 @@ def analyze_makhraj_sad(wav_path: str, start_sec: float, end_sec: float, relativ
         return {"status": "error", "centroid": 0.0, "message": f"DSP processing error: {str(e)}"}
 
 
+def analyze_makhraj_kha(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'خ' (Kha) vs 'ك' (Kaf) / 'ه' (Haa) in the audio segment.
+    Uses Peak-to-Average Energy Ratio (PAER) to detect stops (Kaf) and Spectral Energy Ratio to detect glottals (Haa).
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "paer": float,
+            "ratio": float,
+            "message": str
+        }
+    """
+    try:
+        if not os.path.exists(wav_path):
+            return {"status": "error", "paer": 0.0, "ratio": 0.0, "message": "Audio file not found"}
+
+        # 1. Load WAV file (16kHz, mono, 16-bit PCM expected)
+        sample_rate, data = wavfile.read(wav_path)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+            
+        # 2. Extract the word segment
+        start_sample = int(start_sec * sample_rate)
+        end_sample = int(end_sec * sample_rate)
+        start_sample = max(0, start_sample)
+        end_sample = min(len(data), end_sample)
+        
+        if end_sample - start_sample < sample_rate * 0.1:  # Less than 100ms
+            return {"status": "error", "paer": 0.0, "ratio": 0.0, "message": "Segment too short"}
+            
+        word_audio = data[start_sample:end_sample]
+        
+        # 3. Locate the consonant segment (using sliding window)
+        # Narrow the window to 10% to completely isolate the consonant from surrounding high-energy vowels
+        search_start = int(len(word_audio) * max(0.0, relative_pos - 0.10))
+        search_end = int(len(word_audio) * min(1.0, relative_pos + 0.10))
+        
+        frame_size = int(0.020 * sample_rate)  # 20ms window
+        hop_size = frame_size // 2
+        
+        ste_list = []
+        best_fricative_score = -1
+        best_frame = None
+        
+        for i in range(search_start, search_end - frame_size, hop_size):
+            frame = word_audio[i:i+frame_size]
+            ste = np.sum(frame ** 2) / frame_size
+            ste_list.append(ste)
+            
+            zero_crossings = np.nonzero(np.diff(np.sign(frame)))[0]
+            zcr = len(zero_crossings) / frame_size
+            
+            if ste > 0.0001:
+                score = zcr * (1.0 / (1.0 + ste * 5.0))
+                if score > best_fricative_score:
+                    best_fricative_score = score
+                    best_frame = frame
+                    
+        if not ste_list:
+            return {"status": "error", "paer": 0.0, "ratio": 0.0, "message": "No active frames"}
+            
+        # 4. Compute Peak-to-Average Energy Ratio (PAER) to detect stops (Kaf)
+        max_ste = max(ste_list)
+        mean_ste = np.mean(ste_list)
+        # Add a regularizer (1e-4) to prevent high PAER on quiet signals/breath
+        paer = float(max_ste / (mean_ste + 1e-4))
+        
+        # 5. Compute Spectral Energy Ratio to detect glottals (Haa)
+        if best_frame is None:
+            return {"status": "error", "paer": paer, "ratio": 0.0, "message": "Could not isolate fricative"}
+            
+        windowed_frame = best_frame * np.hamming(len(best_frame))
+        fft_data = np.abs(np.fft.rfft(windowed_frame))
+        frequencies = np.fft.rfftfreq(len(windowed_frame), 1.0 / sample_rate)
+        
+        # 'ه' is low-frequency breath (100 - 800 Hz)
+        # 'خ' is mid-frequency scraping friction (1000 - 3500 Hz)
+        low_band = (frequencies >= 100) & (frequencies <= 800)
+        high_band = (frequencies >= 1000) & (frequencies <= 3500)
+        
+        low_energy = np.sum(fft_data[low_band])
+        high_energy = np.sum(fft_data[high_band])
+        
+        if low_energy == 0:
+            low_energy = 1e-6
+        ratio = float(high_energy / low_energy)
+        
+        # 6. Classification
+        paer_threshold = 3.5
+        ratio_threshold = 0.50
+        
+        if paer >= paer_threshold:
+            return {
+                "status": "fail",
+                "paer": round(paer, 2),
+                "ratio": round(ratio, 2),
+                "message": f"Hampir tepat! Huruf 'خ' terdengar seperti 'ك' (Kaf) akibat hentakan udara (PAER: {paer:.2f}). Coba alirkan suara scraping tenggorokan secara kontinu tanpa menahan udara."
+            }
+        elif ratio < ratio_threshold:
+            return {
+                "status": "fail",
+                "paer": round(paer, 2),
+                "ratio": round(ratio, 2),
+                "message": f"Hampir tepat! Huruf 'خ' terdengar seperti 'ه' (Haa) (ratio: {ratio:.2f}). Coba gesekkan pangkal lidah ke langit-langit lunak untuk menghasilkan suara parau/scraping."
+            }
+        else:
+            return {
+                "status": "pass",
+                "paer": round(paer, 2),
+                "ratio": round(ratio, 2),
+                "message": f"Makhraj Sempurna! Lafal 'خ' bersih dengan gesekan tenggorokan yang kontinu (PAER: {paer:.2f}, ratio: {ratio:.2f})."
+            }
+    except Exception as e:
+        return {"status": "error", "paer": 0.0, "ratio": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+def analyze_makhraj_dhal(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ذ' (Dhal) vs 'ز' (Zay) / 'د' (Dal) in the audio segment.
+    Uses Peak-to-Average Energy Ratio (PAER) to detect stops (Dal) and Fricative-to-Word Energy Ratio to detect sibilance (Zay).
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "paer": float,
+            "energy_ratio": float,
+            "message": str
+        }
+    """
+    try:
+        if not os.path.exists(wav_path):
+            return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": "Audio file not found"}
+
+        # 1. Load WAV file (16kHz, mono, 16-bit PCM expected)
+        sample_rate, data = wavfile.read(wav_path)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+            
+        # 2. Extract the word segment
+        start_sample = int(start_sec * sample_rate)
+        end_sample = int(end_sec * sample_rate)
+        start_sample = max(0, start_sample)
+        end_sample = min(len(data), end_sample)
+        
+        if end_sample - start_sample < sample_rate * 0.1:  # Less than 100ms
+            return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": "Segment too short"}
+            
+        word_audio = data[start_sample:end_sample]
+        
+        # 3. Analyze frames across the entire segment
+        frame_size = int(0.020 * sample_rate)
+        hop_size = frame_size // 2
+        
+        ste_list = []
+        zcr_list = []
+        
+        for i in range(0, len(word_audio) - frame_size, hop_size):
+            frame = word_audio[i:i+frame_size]
+            ste = np.sum(frame ** 2) / frame_size
+            ste_list.append(ste)
+            
+            zero_crossings = np.nonzero(np.diff(np.sign(frame)))[0]
+            zcr = len(zero_crossings) / frame_size
+            zcr_list.append(zcr)
+            
+        if not ste_list:
+            return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": "No active frames"}
+            
+        mean_ste = np.mean(ste_list)
+            
+        # 4. Isolate the consonant region (around the relative position)
+        # Narrow the window to 10% to completely isolate the consonant from surrounding high-energy vowels
+        search_start = int(len(ste_list) * max(0.0, relative_pos - 0.10))
+        search_end = int(len(ste_list) * min(1.0, relative_pos + 0.10))
+        
+        fricative_ste = ste_list[search_start:search_end]
+        fricative_zcr = zcr_list[search_start:search_end]
+        
+        if not fricative_ste:
+            return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": "Fricative region empty"}
+            
+        # Compute PAER (for Dal detection) using ONLY the consonant region
+        max_fric_ste = max(fricative_ste)
+        mean_fric_ste = np.mean(fricative_ste)
+        # Add a regularizer (1e-4) to prevent high PAER on quiet signals/breath
+        paer = float(max_fric_ste / (mean_fric_ste + 1e-4))
+        
+        mean_fricative_ste = np.mean(fricative_ste)
+        mean_fricative_zcr = np.mean(fricative_zcr)
+        
+        energy_ratio = float(mean_fricative_ste / mean_ste)
+        
+        # 6. Classification
+        paer_threshold = 3.5
+        sibilant_energy_threshold = 0.35
+        sibilant_zcr_threshold = 0.22
+        
+        if paer >= paer_threshold:
+            return {
+                "status": "fail",
+                "paer": round(paer, 2),
+                "energy_ratio": round(energy_ratio, 2),
+                "message": f"Hampir tepat! Huruf 'ذ' terdengar seperti 'د' (Dal) akibat tertahannya aliran udara (PAER: {paer:.2f}). Coba alirkan udara dengan meletakkan ujung lidah di ujung gigi seri atas."
+            }
+        elif energy_ratio >= sibilant_energy_threshold and mean_fricative_zcr >= sibilant_zcr_threshold:
+            return {
+                "status": "fail",
+                "paer": round(paer, 2),
+                "energy_ratio": round(energy_ratio, 2),
+                "message": f"Hampir tepat! Huruf 'ذ' terdengar mendesis seperti 'ز' (Zay) (desisan: {energy_ratio:.2f}). Hindari menekan lidah terlalu kuat ke gigi agar desisan berkurang."
+            }
+        else:
+            return {
+                "status": "pass",
+                "paer": round(paer, 2),
+                "energy_ratio": round(energy_ratio, 2),
+                "message": f"Makhraj Sempurna! Lafal 'ذ' lembut dan tepat tanpa desisan berlebih (PAER: {paer:.2f}, desisan: {energy_ratio:.2f})."
+            }
+    except Exception as e:
+        return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+
