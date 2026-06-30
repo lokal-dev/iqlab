@@ -115,7 +115,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                     end_sec = target_asr_word["end"]
                     
                     if has_ha:
-                        makhraj_res = analyze_makhraj_ha(temp_trimmed_path, start_sec, end_sec)
+                        char_idx = norm_word.find('ح')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.2
+                        makhraj_res = analyze_makhraj_ha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
                             status = makhraj_res["status"]
                             msg = makhraj_res["message"]
@@ -128,7 +130,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                             html_words[idx] = html_word.replace('ح', highlighted, 1)
                             
                     elif has_ayn:
-                        makhraj_res = analyze_makhraj_ayn(temp_trimmed_path, start_sec, end_sec)
+                        char_idx = norm_word.find('ع')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.3
+                        makhraj_res = analyze_makhraj_ayn(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
                             status = makhraj_res["status"]
                             msg = makhraj_res["message"]

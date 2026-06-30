@@ -2,7 +2,7 @@ import numpy as np
 from scipy.io import wavfile
 import os
 
-def analyze_makhraj_ha(wav_path: str, start_sec: float, end_sec: float) -> dict:
+def analyze_makhraj_ha(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.2) -> dict:
     """
     Analyzes the pronunciation of the letter 'ح' vs 'ه' in the audio segment.
     Returns:
@@ -43,10 +43,9 @@ def analyze_makhraj_ha(wav_path: str, start_sec: float, end_sec: float) -> dict:
         word_audio = data[start_sample:end_sample]
         
         # 3. Locate the fricative segment (high Zero Crossing Rate, low-medium energy)
-        # We restrict the search to the first 60% of the word duration.
-        # This is because 'ح' in 'الحمد' occurs early, and we want to avoid
-        # picking up the stop-consonant burst 'd' at the end of the word.
-        search_limit = int(len(word_audio) * 0.60)
+        # Center the search window around the letter's relative position
+        window_start = int(len(word_audio) * max(0.0, relative_pos - 0.25))
+        window_end = int(len(word_audio) * min(1.0, relative_pos + 0.25))
         
         # We use a sliding window of 25ms (400 samples at 16kHz) with 50% overlap
         frame_size = int(0.025 * sample_rate)
@@ -55,7 +54,7 @@ def analyze_makhraj_ha(wav_path: str, start_sec: float, end_sec: float) -> dict:
         best_fricative_score = -1
         best_frame_data = None
         
-        for i in range(0, search_limit - frame_size, hop_size):
+        for i in range(window_start, window_end - frame_size, hop_size):
             frame = word_audio[i:i+frame_size]
             
             # Short-Time Energy (STE)
@@ -161,7 +160,7 @@ def estimate_formants_lpc(frame: np.ndarray, sample_rate: int, order: int = 12) 
     return formants
 
 
-def analyze_makhraj_ayn(wav_path: str, start_sec: float, end_sec: float) -> dict:
+def analyze_makhraj_ayn(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.3) -> dict:
     """
     Analyzes the pronunciation of 'ع' (Ayn) vs 'أ' (Hamzah) in the word 'العالمين'.
     Uses LPC Formant Estimation to measure pharyngeal constriction.
@@ -196,10 +195,10 @@ def analyze_makhraj_ayn(wav_path: str, start_sec: float, end_sec: float) -> dict
             
         word_audio = data[start_sample:end_sample]
         
-        # 3. Locate the voiced transition of 'ع' (between 20% and 55% of 'العالمين')
-        # We analyze the segment where the pharyngeal constriction occurs.
-        search_start = int(len(word_audio) * 0.20)
-        search_end = int(len(word_audio) * 0.55)
+        # 3. Locate the voiced transition of 'ع'
+        # Center the search window around the letter's relative position
+        search_start = int(len(word_audio) * max(0.0, relative_pos - 0.20))
+        search_end = int(len(word_audio) * min(1.0, relative_pos + 0.20))
         frame_size = int(0.030 * sample_rate)  # 30ms window
         hop_size = frame_size // 2
         
