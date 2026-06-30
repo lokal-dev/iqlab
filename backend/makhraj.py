@@ -577,4 +577,316 @@ def analyze_makhraj_dhal(wav_path: str, start_sec: float, end_sec: float, relati
         return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": f"DSP processing error: {str(e)}"}
 
 
+def analyze_makhraj_tha(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ث' (Tha) vs 'س' (Sin) / 'ت' (Ta).
+    Similar to 'ذ' but voiceless.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "paer": float,
+            "energy_ratio": float,
+            "message": str
+        }
+    """
+    try:
+        res = analyze_makhraj_dhal(wav_path, start_sec, end_sec, relative_pos)
+        if res["status"] == "error":
+            return res
+        
+        if res["paer"] >= 3.5:
+            return {
+                "status": "fail",
+                "paer": res["paer"],
+                "energy_ratio": res["energy_ratio"],
+                "message": f"Hampir tepat! Huruf 'ث' terdengar seperti 'ت' (Ta) akibat aliran udara tertahan (PAER: {res['paer']:.2f}). Hembuskan udara dengan meletakkan ujung lidah di ujung gigi seri atas."
+            }
+        elif res["energy_ratio"] >= 0.35:
+            return {
+                "status": "fail",
+                "paer": res["paer"],
+                "energy_ratio": res["energy_ratio"],
+                "message": f"Hampir tepat! Huruf 'ث' terdengar mendesis tajam seperti 'س' (Sin) (desisan: {res['energy_ratio']:.2f}). Sentuhkan lidah dengan lembut saja tanpa tekanan kuat."
+            }
+        else:
+            return {
+                "status": "pass",
+                "paer": res["paer"],
+                "energy_ratio": res["energy_ratio"],
+                "message": f"Makhraj Sempurna! Lafal 'ث' lembut dan tepat tanpa desisan berlebih (PAER: {res['paer']:.2f}, desisan: {res['energy_ratio']:.2f})."
+            }
+    except Exception as e:
+        return {"status": "error", "paer": 0.0, "energy_ratio": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+def analyze_makhraj_tah(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ط' (Tah) vs 'ت' (Ta) in the audio segment.
+    Uses Spectral Centroid of the stop burst. Emphatic 'ط' has a lower centroid due to Tafkhim.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "centroid": float,
+            "message": str
+        }
+    """
+    try:
+        if not os.path.exists(wav_path):
+            return {"status": "error", "centroid": 0.0, "message": "Audio file not found"}
+
+        # 1. Load WAV file
+        sample_rate, data = wavfile.read(wav_path)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+            
+        # 2. Extract segment
+        start_sample = max(0, int(start_sec * sample_rate))
+        end_sample = min(len(data), int(end_sec * sample_rate))
+        word_audio = data[start_sample:end_sample]
+        
+        # 3. Locate the burst (highest energy frame in the consonant region)
+        search_start = int(len(word_audio) * max(0.0, relative_pos - 0.10))
+        search_end = int(len(word_audio) * min(1.0, relative_pos + 0.10))
+        frame_size = int(0.015 * sample_rate)  # 15ms window for transient burst
+        hop_size = frame_size // 2
+        
+        best_ste = -1
+        best_frame = None
+        for i in range(search_start, search_end - frame_size, hop_size):
+            frame = word_audio[i:i+frame_size]
+            ste = np.sum(frame**2) / frame_size
+            if ste > best_ste:
+                best_ste = ste
+                best_frame = frame
+                
+        if best_frame is None:
+            return {"status": "error", "centroid": 0.0, "message": "Could not locate stop burst"}
+            
+        # 4. Compute Spectral Centroid of the burst
+        windowed = best_frame * np.hamming(len(best_frame))
+        fft_data = np.abs(np.fft.rfft(windowed))
+        frequencies = np.fft.rfftfreq(len(windowed), 1.0 / sample_rate)
+        
+        sum_fft = np.sum(fft_data)
+        if sum_fft == 0:
+            return {"status": "error", "centroid": 0.0, "message": "Silent burst frame"}
+            
+        centroid = float(np.sum(frequencies * fft_data) / sum_fft)
+        
+        # 5. Classification
+        # Emphatic 'ط' has a lower centroid (< 4000 Hz) due to back-tongue raising.
+        # Plain 'ت' has a higher centroid (>= 4000 Hz).
+        threshold = 4000.0
+        if centroid < threshold:
+            return {
+                "status": "pass",
+                "centroid": round(centroid, 1),
+                "message": f"Makhraj Sempurna! Lafal 'ط' tebal dan fasih (Tafkhim) (centroid: {centroid:.1f}Hz)."
+            }
+        else:
+            return {
+                "status": "fail",
+                "centroid": round(centroid, 1),
+                "message": f"Hampir tepat! Huruf 'ط' terdengar tipis seperti 'ت' (Ta) (centroid: {centroid:.1f}Hz). Angkat pangkal lidah ke langit-langit lunak untuk menebalkan suara."
+            }
+    except Exception as e:
+        return {"status": "error", "centroid": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+def analyze_makhraj_zha(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ظ' (Zha) vs 'ز' (Zay) / 'د' (Dal) / 'ض' (Dad).
+    Emphatic voiced dental fricative.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "message": str
+        }
+    """
+    try:
+        res = analyze_makhraj_dhal(wav_path, start_sec, end_sec, relative_pos)
+        if res["status"] == "error":
+            return res
+            
+        if res["paer"] >= 3.5:
+            return {
+                "status": "fail",
+                "message": f"Hampir tepat! Huruf 'ظ' terdengar seperti 'د' atau 'ض' akibat tertahannya aliran udara (PAER: {res['paer']:.2f}). Coba alirkan udara dengan lembut."
+            }
+        elif res["energy_ratio"] >= 0.35:
+            return {
+                "status": "fail",
+                "message": f"Hampir tepat! Huruf 'ظ' terdengar mendesis tipis seperti 'ز' (Zay) (desisan: {res['energy_ratio']:.2f}). Penuhi rongga mulut dengan gema (Tafkhim) dan angkat pangkal lidah."
+            }
+        else:
+            return {
+                "status": "pass",
+                "message": f"Makhraj Sempurna! Lafal 'ظ' tebal, lembut, dan tepat."
+            }
+    except Exception as e:
+        return {"status": "error", "message": f"DSP processing error: {str(e)}"}
+
+
+def analyze_makhraj_dad(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ض' (Dad) vs 'د' (Dal).
+    Uses Spectral Centroid. Emphatic 'ض' has a lower centroid than plain 'د'.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "centroid": float,
+            "message": str
+        }
+    """
+    try:
+        res = analyze_makhraj_tah(wav_path, start_sec, end_sec, relative_pos)
+        if res["status"] == "error":
+            return res
+            
+        centroid = res["centroid"]
+        # 'ض' (Dad) is extremely thick, threshold set at 3400 Hz.
+        threshold = 3400.0
+        if centroid < threshold:
+            return {
+                "status": "pass",
+                "centroid": centroid,
+                "message": f"Makhraj Sempurna! Lafal 'ض' tebal dan tepat (centroid: {centroid:.1f}Hz)."
+            }
+        else:
+            return {
+                "status": "fail",
+                "centroid": centroid,
+                "message": f"Hampir tepat! Huruf 'ض' terdengar tipis seperti 'د' (Dal) (centroid: {centroid:.1f}Hz). Tempelkan sisi lidah ke gigi geraham atas untuk menutup aliran suara."
+            }
+    except Exception as e:
+        return {"status": "error", "centroid": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+def analyze_makhraj_ghayn(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'غ' (Ghayn) vs 'خ' (Kha) / 'g' (Indonesian g).
+    Uses voicing detection (energy in 50-250Hz) to separate from 'خ', and PAER to separate from stop 'g'.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "paer": float,
+            "message": str
+        }
+    """
+    try:
+        if not os.path.exists(wav_path):
+            return {"status": "error", "paer": 0.0, "message": "Audio file not found"}
+
+        # 1. Load WAV file
+        sample_rate, data = wavfile.read(wav_path)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+            
+        # 2. Extract segment
+        start_sample = max(0, int(start_sec * sample_rate))
+        end_sample = min(len(data), int(end_sec * sample_rate))
+        word_audio = data[start_sample:end_sample]
+        
+        # 3. Analyze consonant region
+        search_start = int(len(word_audio) * max(0.0, relative_pos - 0.10))
+        search_end = int(len(word_audio) * min(1.0, relative_pos + 0.10))
+        frame_size = int(0.020 * sample_rate)
+        hop_size = frame_size // 2
+        
+        ste_list = []
+        best_frame = None
+        best_ste = -1
+        for i in range(search_start, search_end - frame_size, hop_size):
+            frame = word_audio[i:i+frame_size]
+            ste = np.sum(frame**2) / frame_size
+            ste_list.append(ste)
+            if ste > best_ste:
+                best_ste = ste
+                best_frame = frame
+                
+        if not ste_list or best_frame is None:
+            return {"status": "error", "paer": 0.0, "message": "Could not isolate consonant"}
+            
+        paer = float(max(ste_list) / (np.mean(ste_list) + 1e-4))
+        
+        # 4. Check voicing (energy in 50-250Hz vs 1000-4000Hz)
+        windowed = best_frame * np.hamming(len(best_frame))
+        fft_data = np.abs(np.fft.rfft(windowed))
+        frequencies = np.fft.rfftfreq(len(windowed), 1.0 / sample_rate)
+        
+        voice_band = (frequencies >= 50) & (frequencies <= 250)
+        fric_band = (frequencies >= 1000) & (frequencies <= 4000)
+        
+        voice_energy = np.sum(fft_data[voice_band])
+        fric_energy = np.sum(fft_data[fric_band])
+        
+        voicing_ratio = float(voice_energy / (fric_energy + 1e-4))
+        
+        # 5. Classification
+        if paer >= 3.5:
+            return {
+                "status": "fail",
+                "paer": round(paer, 2),
+                "message": f"Hampir tepat! Huruf 'غ' terdengar seperti plosif 'g' akibat aliran udara tertahan (PAER: {paer:.2f}). Alirkan suara getaran tenggorokan secara berkesinambungan."
+            }
+        elif voicing_ratio < 0.8:
+            return {
+                "status": "fail",
+                "paer": round(paer, 2),
+                "message": f"Hampir tepat! Huruf 'غ' terdengar tanpa desis pita suara, mirip seperti 'خ' (Kha) (voicing ratio: {voicing_ratio:.2f}). Bunyikan suara dengan getaran pita suara."
+            }
+        else:
+            return {
+                "status": "pass",
+                "paer": round(paer, 2),
+                "message": f"Makhraj Sempurna! Lafal 'غ' tepat dan bergetar di tenggorokan atas (voicing ratio: {voicing_ratio:.2f})."
+            }
+    except Exception as e:
+        return {"status": "error", "paer": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+def analyze_makhraj_qaf(wav_path: str, start_sec: float, end_sec: float, relative_pos: float = 0.5) -> dict:
+    """
+    Analyzes the pronunciation of 'ق' (Qaf) vs 'ك' (Kaf).
+    Uses Spectral Centroid of the stop burst. Uvular 'ق' has a lower centroid than velar 'ك'.
+    Returns:
+        {
+            "status": "pass" | "fail" | "error",
+            "centroid": float,
+            "message": str
+        }
+    """
+    try:
+        res = analyze_makhraj_tah(wav_path, start_sec, end_sec, relative_pos)
+        if res["status"] == "error":
+            return res
+            
+        centroid = res["centroid"]
+        # Uvular 'ق' has a lower centroid (< 3000 Hz) due to deep throat constriction.
+        threshold = 3000.0
+        if centroid < threshold:
+            return {
+                "status": "pass",
+                "centroid": centroid,
+                "message": f"Makhraj Sempurna! Lafal 'ق' mantap dan tebal di pangkal tenggorokan (centroid: {centroid:.1f}Hz)."
+            }
+        else:
+            return {
+                "status": "fail",
+                "centroid": centroid,
+                "message": f"Hampir tepat! Huruf 'ق' terdengar tipis seperti 'ك' (Kaf) (centroid: {centroid:.1f}Hz). Tekan pangkal lidah lebih dalam ke langit-langit lunak dekat anak tekak."
+            }
+    except Exception as e:
+        return {"status": "error", "centroid": 0.0, "message": f"DSP processing error: {str(e)}"}
+
+
+
 

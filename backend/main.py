@@ -10,7 +10,12 @@ from backend.db import get_db, init_db
 from backend.models import IdentifyResponse, VerseResponse
 from backend.asr import transcribe_audio
 from backend.search import search_verses, normalize_arabic
-from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn, analyze_makhraj_sad
+from backend.makhraj import (
+    analyze_makhraj_ha, analyze_makhraj_ayn, analyze_makhraj_sad, 
+    analyze_makhraj_kha, analyze_makhraj_dhal, analyze_makhraj_tha, 
+    analyze_makhraj_tah, analyze_makhraj_zha, analyze_makhraj_dad, 
+    analyze_makhraj_ghayn, analyze_makhraj_qaf
+)
 
 app = FastAPI(title="iq.lab API")
 
@@ -87,12 +92,21 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
             # ── Generalized Makhraj Grading ──
             html_words = verse.tajweed_html.split()
             for idx, html_word in enumerate(html_words):
-                # Check if this word contains 'ح' or 'ع' or 'ص'
+                # Check if this word contains any of our supported target letters
                 has_ha = 'ح' in html_word
                 has_ayn = 'ع' in html_word
                 has_sad = 'ص' in html_word
+                has_kha = 'خ' in html_word
+                has_dhal = 'ذ' in html_word
+                has_tha = 'ث' in html_word
+                has_tah = 'ط' in html_word
+                has_zha = 'ظ' in html_word
+                has_dad = 'ض' in html_word
+                has_ghayn = 'غ' in html_word
+                has_qaf = 'ق' in html_word
                 
-                if not (has_ha or has_ayn or has_sad):
+                if not (has_ha or has_ayn or has_sad or has_kha or has_dhal or 
+                        has_tha or has_tah or has_zha or has_dad or has_ghayn or has_qaf):
                     continue
                     
                 # Normalize the Uthmani word for comparison
@@ -115,6 +129,7 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                     start_sec = target_asr_word["start"]
                     end_sec = target_asr_word["end"]
                     
+                    # 1. Ha (ح)
                     if has_ha:
                         char_idx = norm_word.find('ح')
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.2
@@ -130,6 +145,7 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                             )
                             html_words[idx] = html_word.replace('ح', highlighted, 1)
                             
+                    # 2. Ayn (ع)
                     elif has_ayn:
                         char_idx = norm_word.find('ع')
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.3
@@ -145,6 +161,7 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                             )
                             html_words[idx] = html_word.replace('ع', highlighted, 1)
                             
+                    # 3. Sad (ص)
                     elif has_sad:
                         char_idx = norm_word.find('ص')
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
@@ -159,6 +176,134 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                                 f'data-end="{end_sec}">ص</span>'
                             )
                             html_words[idx] = html_word.replace('ص', highlighted, 1)
+                            
+                    # 4. Kha (خ)
+                    elif has_kha:
+                        char_idx = norm_word.find('خ')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_kha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">خ</span>'
+                            )
+                            html_words[idx] = html_word.replace('خ', highlighted, 1)
+                            
+                    # 5. Dhal (ذ)
+                    elif has_dhal:
+                        char_idx = norm_word.find('ذ')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_dhal(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ذ</span>'
+                            )
+                            html_words[idx] = html_word.replace('ذ', highlighted, 1)
+                            
+                    # 6. Tha (ث)
+                    elif has_tha:
+                        char_idx = norm_word.find('ث')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_tha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ث</span>'
+                            )
+                            html_words[idx] = html_word.replace('ث', highlighted, 1)
+                            
+                    # 7. Tah (ط)
+                    elif has_tah:
+                        char_idx = norm_word.find('ط')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_tah(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ط</span>'
+                            )
+                            html_words[idx] = html_word.replace('ط', highlighted, 1)
+                            
+                    # 8. Zha (ظ)
+                    elif has_zha:
+                        char_idx = norm_word.find('ظ')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_zha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ظ</span>'
+                            )
+                            html_words[idx] = html_word.replace('ظ', highlighted, 1)
+                            
+                    # 9. Dad (ض)
+                    elif has_dad:
+                        char_idx = norm_word.find('ض')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_dad(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ض</span>'
+                            )
+                            html_words[idx] = html_word.replace('ض', highlighted, 1)
+                            
+                    # 10. Ghayn (غ)
+                    elif has_ghayn:
+                        char_idx = norm_word.find('غ')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_ghayn(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">غ</span>'
+                            )
+                            html_words[idx] = html_word.replace('غ', highlighted, 1)
+                            
+                    # 11. Qaf (ق)
+                    elif has_qaf:
+                        char_idx = norm_word.find('ق')
+                        rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
+                        makhraj_res = analyze_makhraj_qaf(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ق</span>'
+                            )
+                            html_words[idx] = html_word.replace('ق', highlighted, 1)
             
             tajweed_html = " ".join(html_words)
             

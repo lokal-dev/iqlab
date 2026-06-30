@@ -230,7 +230,15 @@ function MakhrajFeedbackPanel({ feedback, audioBlob }) {
   const exampleAudioMap = {
     'ح': '/audio/examples/ha.mp3',
     'ع': '/audio/examples/ayn.mp3',
-    'ص': '/audio/examples/sad.mp3'
+    'ص': '/audio/examples/sad.mp3',
+    'خ': '/audio/examples/kha.mp3',
+    'ذ': '/audio/examples/dhal.mp3',
+    'ث': '/audio/examples/tha.mp3',
+    'ط': '/audio/examples/tah.mp3',
+    'ظ': '/audio/examples/zha.mp3',
+    'ض': '/audio/examples/dad.mp3',
+    'غ': '/audio/examples/ghayn.mp3',
+    'ق': '/audio/examples/qaf.mp3'
   };
 
   return (
