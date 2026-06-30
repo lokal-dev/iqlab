@@ -9,7 +9,7 @@ import subprocess
 from backend.db import get_db, init_db
 from backend.models import IdentifyResponse, VerseResponse
 from backend.asr import transcribe_audio
-from backend.search import search_verses
+from backend.search import search_verses, normalize_arabic
 from backend.makhraj import analyze_makhraj_ha, analyze_makhraj_ayn
 
 app = FastAPI(title="iq.lab API")
@@ -84,81 +84,63 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
             if confidence < 0.05:
                 continue
                 
-            # ── Makhraj Grading PoC (Surah 1 Ayah 2: 'الحمد') ──
-            tajweed_html = verse.tajweed_html
+            # ── Generalized Makhraj Grading ──
+            html_words = verse.tajweed_html.split()
+            for idx, html_word in enumerate(html_words):
+                # Check if this word contains 'ح' or 'ع'
+                has_ha = 'ح' in html_word
+                has_ayn = 'ع' in html_word
+                
+                if not (has_ha or has_ayn):
+                    continue
+                    
+                # Normalize the Uthmani word for comparison
+                norm_word = normalize_arabic(html_word)
+                if not norm_word:
+                    continue
+                
+                # Find the corresponding word in the ASR word list
+                target_asr_word = None
+                for w in asr_result["words"]:
+                    asr_norm = normalize_arabic(w["word"])
+                    # Check for exact match or high overlap/substring match
+                    if asr_norm and (asr_norm in norm_word or norm_word in asr_norm or 
+                                     (len(asr_norm) > 2 and len(norm_word) > 2 and 
+                                      (asr_norm[1:-1] in norm_word or norm_word[1:-1] in asr_norm))):
+                        target_asr_word = w
+                        break
+                        
+                if target_asr_word:
+                    start_sec = target_asr_word["start"]
+                    end_sec = target_asr_word["end"]
+                    
+                    if has_ha:
+                        makhraj_res = analyze_makhraj_ha(temp_trimmed_path, start_sec, end_sec)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ح</span>'
+                            )
+                            html_words[idx] = html_word.replace('ح', highlighted, 1)
+                            
+                    elif has_ayn:
+                        makhraj_res = analyze_makhraj_ayn(temp_trimmed_path, start_sec, end_sec)
+                        if makhraj_res["status"] in ["pass", "fail"]:
+                            status = makhraj_res["status"]
+                            msg = makhraj_res["message"]
+                            highlighted = (
+                                f'<span class="makhraj-highlight makhraj-{status}" '
+                                f'title="{msg}" '
+                                f'data-start="{start_sec}" '
+                                f'data-end="{end_sec}">ع</span>'
+                            )
+                            html_words[idx] = html_word.replace('ع', highlighted, 1)
             
-            if verse.surah_number == 1 and verse.ayah_number == 2:
-                # ─── 1. Makhraj 'ح' in 'الحمد' ───
-                target_word_ha = None
-                for w in asr_result["words"]:
-                    clean_w = w["word"].strip()
-                    if "حمد" in clean_w:
-                        target_word_ha = w
-                        break
-                
-                if target_word_ha:
-                    makhraj_res_ha = analyze_makhraj_ha(
-                        temp_trimmed_path,
-                        start_sec=target_word_ha["start"],
-                        end_sec=target_word_ha["end"]
-                    )
-                    
-                    if makhraj_res_ha["status"] in ["pass", "fail"]:
-                        status = makhraj_res_ha["status"]
-                        msg = makhraj_res_ha["message"]
-                        
-                        if status == "pass":
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-pass" '
-                                f'title="{msg}" '
-                                f'data-start="{target_word_ha["start"]}" '
-                                f'data-end="{target_word_ha["end"]}">ح</span>'
-                            )
-                        else:
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-fail" '
-                                f'title="{msg}" '
-                                f'data-start="{target_word_ha["start"]}" '
-                                f'data-end="{target_word_ha["end"]}">ح</span>'
-                            )
-                        
-                        tajweed_html = tajweed_html.replace('ح', highlighted)
-                
-                # ─── 2. Makhraj 'ع' in 'العالمين' ───
-                target_word_ayn = None
-                for w in asr_result["words"]:
-                    clean_w = w["word"].strip()
-                    if "عالم" in clean_w or "الم" in clean_w:
-                        target_word_ayn = w
-                        break
-                
-                if target_word_ayn:
-                    makhraj_res_ayn = analyze_makhraj_ayn(
-                        temp_trimmed_path,
-                        start_sec=target_word_ayn["start"],
-                        end_sec=target_word_ayn["end"]
-                    )
-                    
-                    if makhraj_res_ayn["status"] in ["pass", "fail"]:
-                        status = makhraj_res_ayn["status"]
-                        msg = makhraj_res_ayn["message"]
-                        
-                        if status == "pass":
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-pass" '
-                                f'title="{msg}" '
-                                f'data-start="{target_word_ayn["start"]}" '
-                                f'data-end="{target_word_ayn["end"]}">ع</span>'
-                            )
-                        else:
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-fail" '
-                                f'title="{msg}" '
-                                f'data-start="{target_word_ayn["start"]}" '
-                                f'data-end="{target_word_ayn["end"]}">ع</span>'
-                            )
-                        
-                        tajweed_html = tajweed_html.replace('ع', highlighted)
+            tajweed_html = " ".join(html_words)
             
             response_data.append(VerseResponse(
                 id=verse.id,
@@ -188,3 +170,5 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+
+
