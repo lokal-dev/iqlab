@@ -22,23 +22,12 @@ def to_arabic_number(n: int) -> str:
     return str(n).translate(western_to_arabic)
 
 def seed_all_surahs():
-    print("Initializing database schema...")
-    init_db()
+    print("Recreating database schema to apply 768-dimensional vector column...")
+    from backend.db import Base, engine
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
     
     db: Session = SessionLocal()
-    
-    # Check if already seeded (we want a clean slate, so we'll check if it has a lot of verses)
-    existing_count = db.query(Verse).count()
-    if existing_count > 100:
-        print(f"Database already has {existing_count} verses. Skipping seeding.")
-        db.close()
-        return
-
-    # If there are only a few (like the Al-Fatihah pilot), wipe them to prevent duplicates
-    if existing_count > 0:
-        print("Wiping existing pilot verses for a clean full seed...")
-        db.query(Verse).delete()
-        db.commit()
 
     print("Fetching Surah list from GitHub...")
     surah_list_url = "https://raw.githubusercontent.com/penggguna/QuranJSON/master/quran.json"
@@ -79,7 +68,8 @@ def seed_all_surahs():
             normalized = normalize_arabic(arabic_text)
             
             # Generate embedding vector
-            embedding = embed_text(normalized)
+            # E5 models require a "passage: " prefix for stored documents
+            embedding = embed_text("passage: " + normalized)
             
             # Generate Uthmani text with the end-of-ayah symbol and Arabic numeral
             arabic_num = to_arabic_number(ayah_num)

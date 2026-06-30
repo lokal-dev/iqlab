@@ -6,7 +6,7 @@ from backend.db import Verse
 from sentence_transformers import SentenceTransformer
 
 # Load the embedding model
-EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
 print(f"Loading embedding model '{EMBEDDING_MODEL_NAME}'...")
 embedder = SentenceTransformer(EMBEDDING_MODEL_NAME, device="cpu")
 print("Embedding model loaded.")
@@ -79,7 +79,8 @@ def search_verses(db: Session, raw_text: str, top_k: int = 3):
         return []
 
     # ── 1. Vector similarity search ─────────────────────────────
-    query_embedding = embed_text(query_normalized)
+    # E5 models require a "query: " prefix for the query text
+    query_embedding = embed_text("query: " + query_normalized)
 
     vector_results = db.query(
         Verse,

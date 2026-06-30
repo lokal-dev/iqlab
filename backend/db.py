@@ -26,8 +26,8 @@ class Verse(Base):
     tajweed_html = Column(Text)
     translation = Column(Text)
     
-    # We will use sentence-transformers embedding size, let's assume 384 for multilingual-MiniLM
-    embedding = Column(Vector(384))
+    # We will use intfloat/multilingual-e5-base embedding size (768 dimensions)
+    embedding = Column(Vector(768))
 
 def init_db():
     Base.metadata.create_all(bind=engine)
