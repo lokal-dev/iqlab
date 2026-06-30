@@ -391,12 +391,66 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
   );
 }
 
+/* ── Quotes & Icons for Queue ────────────────────────────────── */
+const IconQuote = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.75-2-2-2H4c-1.25 0-2 .75-2 2v6c0 1.25.75 2 2 2h3c0 4-3 6-3 6Zm11 0c3 0 7-1 7-8V5c0-1.25-.75-2-2-2h-4c-1.25 0-2 .75-2 2v6c0 1.25.75 2 2 2h3c0 4-3 6-3 6Z"/>
+  </svg>
+);
+
+const ISLAMIC_QUOTES = [
+  {
+    text: "Barangsiapa menempuh jalan untuk mencari ilmu, Allah akan mudahkan baginya jalan menuju surga.",
+    author: "HR. Muslim",
+    category: "Hadits"
+  },
+  {
+    text: "Ilmu tanpa amal adalah kegilaan, dan amal tanpa ilmu adalah kesia-siaan.",
+    author: "Imam Al-Ghazali",
+    category: "Kalam Hikmah"
+  },
+  {
+    text: "Jika kamu tidak tahan terhadap penatnya belajar, maka kamu harus tahan terhadap perihnya kebodohan.",
+    author: "Imam Asy-Syafi'i",
+    category: "Kalam Hikmah"
+  },
+  {
+    text: "Menghidupkan hati dengan ilmu seperti menghidupkan bumi yang mati dengan air hujan.",
+    author: "Ibn Qayyim Al-Jawziyyah",
+    category: "Kalam Hikmah"
+  },
+  {
+    text: "Al-Khwarizmi menciptakan konsep Al-Jabar & Algoritma, menjadi fondasi dasar bagi komputer modern dan kecerdasan buatan (AI) hari ini.",
+    author: "Fakta Sejarah",
+    category: "Sains Islam"
+  },
+  {
+    text: "Fatima Al-Fihri mendirikan Universitas Al-Qarawiyyin pada 859 M di Maroko, diakui oleh UNESCO sebagai universitas tertua di dunia.",
+    author: "Fakta Sejarah",
+    category: "Sejarah Islam"
+  },
+  {
+    text: "Ibn Al-Haitham (Alhazen) merumuskan teori penglihatan modern & optik (Kamera Obscura) dengan membuktikan bahwa cahaya merambat lurus.",
+    author: "Fakta Sejarah",
+    category: "Sains Islam"
+  },
+  {
+    text: "Kata 'Al-Ilm' (ilmu) beserta turunannya disebutkan sebanyak 779 kali dalam Al-Qur'an, menunjukkan betapa agungnya posisi ilmu.",
+    author: "Fakta Al-Qur'an",
+    category: "Statistik Al-Qur'an"
+  }
+];
+
 /* ── Queue Indicator ─────────────────────────────────────────────── */
 function QueueIndicator({ onCancel, audioBlob }) {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0-100
   const [audioUrl, setAudioUrl] = useState(null);
+  
+  // Quote rotation state
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [isFading, setIsFading] = useState(false);
 
   // Create & revoke object URL from blob
   useEffect(() => {
@@ -427,6 +481,19 @@ function QueueIndicator({ onCancel, audioBlob }) {
     };
   }, [audioUrl]);
 
+  // Quote rotation effect (every 5.5 seconds: 5s display + 0.5s fade out/in transition)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsFading(true);
+      setTimeout(() => {
+        setQuoteIndex((prev) => (prev + 1) % ISLAMIC_QUOTES.length);
+        setIsFading(false);
+      }, 400); // Wait for fade-out animation to complete
+    }, 5500);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   function togglePlay() {
     const audio = audioRef.current;
     if (!audio) return;
@@ -440,6 +507,8 @@ function QueueIndicator({ onCancel, audioBlob }) {
     }
   }
 
+  const currentQuote = ISLAMIC_QUOTES[quoteIndex];
+
   return (
     <div className="queue-indicator" role="status" aria-live="polite" aria-label="Sedang memproses audio">
       <div className="queue-dots" aria-hidden="true">
@@ -448,6 +517,18 @@ function QueueIndicator({ onCancel, audioBlob }) {
         <div className="queue-dot" />
       </div>
       <p className="queue-text">Sedang memproses rekaman…</p>
+
+      {/* ── Did You Know & Quote Card ── */}
+      <div className={`quote-card ${isFading ? 'fade-out' : 'fade-in'}`}>
+        <div className="quote-header">
+          <span className="quote-category">{currentQuote.category}</span>
+          <div className="quote-icon" aria-hidden="true">
+            <IconQuote />
+          </div>
+        </div>
+        <p className="quote-content">"{currentQuote.text}"</p>
+        <span className="quote-author">— {currentQuote.author}</span>
+      </div>
 
       {/* ── Replay player ── */}
       {audioUrl && (
