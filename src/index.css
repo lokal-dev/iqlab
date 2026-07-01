@@ -1559,6 +1559,16 @@ input, textarea {
   border-radius: var(--r-md);
 }
 
+/* Enable pointer cursor and hover effect only on selected cards and mapped words */
+.selected .verse-word[data-start] {
+  cursor: pointer;
+}
+
+.selected .verse-word[data-start]:hover {
+  background-color: oklch(0.75 0.135 85 / 0.12);
+  color: var(--accent-gold) !important;
+}
+
 .verse-word.highlighted-word {
   color: var(--accent-gold) !important;
   text-shadow: 0 0 8px oklch(0.75 0.135 85 / 0.7);

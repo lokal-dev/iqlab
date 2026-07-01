@@ -387,6 +387,27 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
     }
   };
 
+  const handleVerseTextClick = (e) => {
+    // Only allow click-to-seek if the card is selected and audio exists
+    if (!isSelected || !audioRef.current) return;
+
+    const wordSpan = e.target.closest('.verse-word');
+    if (!wordSpan) return;
+
+    const start = parseFloat(wordSpan.getAttribute('data-start'));
+    if (!isNaN(start)) {
+      e.stopPropagation();
+      const audio = audioRef.current;
+      audio.currentTime = start;
+      
+      // If it wasn't playing, start playback!
+      if (!isPlaying) {
+        audio.play();
+        setIsPlaying(true);
+      }
+    }
+  };
+
   return (
     <article
       ref={containerRef}
@@ -422,6 +443,7 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
         className={`verse-arabic${isSelected ? ' verse-arabic--expanded' : ''}`}
         dir="rtl"
         lang="ar"
+        onClick={handleVerseTextClick}
         dangerouslySetInnerHTML={{ __html: verse.tajweedHtml }}
       />
 
