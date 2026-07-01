@@ -42,6 +42,11 @@ def trim_audio(input_path: str, output_path: str, duration: int = 10):
     except subprocess.CalledProcessError:
         raise Exception("Audio trimming failed.")
 
+def to_arabic_number(n: int) -> str:
+    """Converts Western digits to Arabic-Indic digits for the end-of-ayah marker."""
+    western_to_arabic = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+    return str(n).translate(western_to_arabic)
+
 @app.post("/api/identify", response_model=IdentifyResponse)
 async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(get_db)):
     """
@@ -90,7 +95,7 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                 continue
                 
             # ── Generalized Makhraj Grading ──
-            html_words = verse.tajweed_html.split()
+            html_words = verse.arabic_text.split()
             for idx, html_word in enumerate(html_words):
                 # Check if this word contains any of our supported target letters
                 has_ha = 'ح' in html_word
@@ -311,7 +316,10 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                     # No target word matched in ASR, wrap normally
                     html_words[idx] = f'<span class="verse-word">{html_word}</span>'
             
-            tajweed_html = " ".join(html_words)
+            body_html = " ".join(html_words)
+            arabic_num = to_arabic_number(verse.ayah_number)
+            ayah_marker = f'<span class="waqf waqf-ayah" data-waqf="ayah" title="Akhir ayat {verse.ayah_number}">۝{arabic_num}</span>'
+            tajweed_html = f'{body_html} {ayah_marker}'
             
             response_data.append(VerseResponse(
                 id=verse.id,
