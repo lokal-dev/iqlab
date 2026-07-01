@@ -148,13 +148,10 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                 has_ghayn = 'غ' in html_word
                 has_qaf = 'ق' in html_word
                 
-                if not (has_ha or has_ayn or has_sad or has_kha or has_dhal or 
-                        has_tha or has_tah or has_zha or has_dad or has_ghayn or has_qaf):
-                    continue
-                    
                 # Normalize the Uthmani word for comparison
                 norm_word = normalize_arabic(html_word)
                 if not norm_word:
+                    html_words[idx] = f'<span class="verse-word">{html_word}</span>'
                     continue
                 
                 # Fetch pre-aligned ASR word
