@@ -304,6 +304,12 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                                 f'data-end="{end_sec}">ق</span>'
                             )
                             html_words[idx] = html_word.replace('ق', highlighted, 1)
+                    
+                    # Wrap word with start and end timestamps
+                    html_words[idx] = f'<span class="verse-word" data-start="{start_sec}" data-end="{end_sec}">{html_words[idx]}</span>'
+                else:
+                    # No target word matched in ASR, wrap normally
+                    html_words[idx] = f'<span class="verse-word">{html_word}</span>'
             
             tajweed_html = " ".join(html_words)
             

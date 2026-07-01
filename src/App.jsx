@@ -315,8 +315,81 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
   const feedback = parseMakhrajFeedback(verse.tajweedHtml);
   const hasErrors = feedback.some(f => f.status === 'fail');
 
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!audioBlob) return;
+    const url = URL.createObjectURL(audioBlob);
+    setAudioUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [audioBlob]);
+
+  // Reset play state if card is deselected
+  useEffect(() => {
+    if (!isSelected && isPlaying) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+      handleAudioEnded();
+    }
+  }, [isSelected]);
+
+  const handlePlayAudio = (e) => {
+    e.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      audio.currentTime = 0;
+      audio.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    const audio = audioRef.current;
+    const container = containerRef.current;
+    if (!audio || !container) return;
+
+    const currentTime = audio.currentTime;
+    const wordSpans = container.querySelectorAll('.verse-word');
+    
+    wordSpans.forEach(span => {
+      const start = parseFloat(span.getAttribute('data-start'));
+      const end = parseFloat(span.getAttribute('data-end'));
+      
+      if (!isNaN(start) && !isNaN(end)) {
+        if (currentTime >= start && currentTime <= end) {
+          span.classList.add('highlighted-word');
+        } else {
+          span.classList.remove('highlighted-word');
+        }
+      }
+    });
+  };
+
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    const container = containerRef.current;
+    if (container) {
+      container.querySelectorAll('.verse-word').forEach(span => {
+        span.classList.remove('highlighted-word');
+      });
+    }
+  };
+
   return (
     <article
+      ref={containerRef}
       className={`verse-card${isSelected ? ' selected' : ''}${hasErrors ? ' has-makhraj-errors' : ''}`}
       onClick={() => !isSelected && onSelect(verse)}
       role="button"
@@ -385,6 +458,26 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
           <p className="verse-translation">{verse.translation}</p>
           <WaqfLegend />
           <div className="verse-card-footer">
+            {audioUrl && (
+              <button 
+                className={`audio-replay-btn${isPlaying ? ' playing' : ''}`}
+                onClick={handlePlayAudio}
+                type="button"
+                aria-label="Putar Rekaman Suaramu"
+              >
+                {isPlaying ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16" rx="1"/>
+                    <rect x="14" y="4" width="4" height="16" rx="1"/>
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                )}
+                <span>{isPlaying ? 'Hentikan Suara' : 'Putar Rekamanmu'}</span>
+              </button>
+            )}
             <CopyButton verse={verse} />
           </div>
         </div>
@@ -395,6 +488,17 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
         <div className="verse-card-footer verse-card-footer--collapsed">
           <CopyButton verse={verse} />
         </div>
+      )}
+
+      {/* Hidden audio element for timed playback */}
+      {audioUrl && (
+        <audio 
+          ref={audioRef} 
+          src={audioUrl} 
+          onTimeUpdate={handleTimeUpdate} 
+          onEnded={handleAudioEnded} 
+          preload="auto" 
+        />
       )}
     </article>
   );
