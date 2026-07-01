@@ -47,6 +47,40 @@ def to_arabic_number(n: int) -> str:
     western_to_arabic = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
     return str(n).translate(western_to_arabic)
 
+def align_words(db_words: list, asr_words: list) -> list:
+    """
+    Aligns db_words to asr_words sequentially.
+    Returns a list of matching asr_word dicts or None for each db_word.
+    """
+    def is_match(db_w: str, asr_w: str) -> bool:
+        if not db_w or not asr_w:
+            return False
+        db_norm = normalize_arabic(db_w)
+        asr_norm = normalize_arabic(asr_w)
+        if db_norm == asr_norm:
+            return True
+        if len(db_norm) >= 3 and len(asr_norm) >= 3:
+            if db_norm.endswith(asr_norm) or asr_norm.endswith(db_norm) or db_norm.startswith(asr_norm) or asr_norm.startswith(db_norm):
+                return True
+        return False
+
+    aligned = []
+    asr_idx = 0
+    
+    for db_w in db_words:
+        matched_word = None
+        # Look ahead up to 4 words in the ASR output
+        search_limit = min(asr_idx + 4, len(asr_words))
+        for j in range(asr_idx, search_limit):
+            if is_match(db_w, asr_words[j]["word"]):
+                matched_word = asr_words[j]
+                asr_idx = j + 1
+                break
+        aligned.append(matched_word)
+        
+    return aligned
+
+
 @app.post("/api/identify", response_model=IdentifyResponse)
 async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(get_db)):
     """
@@ -96,6 +130,10 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                 
             # ── Generalized Makhraj Grading ──
             html_words = verse.arabic_text.split()
+            
+            # Sequentially align the database words to the ASR transcribed words
+            aligned_asr_words = align_words(html_words, asr_result["words"])
+            
             for idx, html_word in enumerate(html_words):
                 # Check if this word contains any of our supported target letters
                 has_ha = 'ح' in html_word
@@ -119,16 +157,8 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                 if not norm_word:
                     continue
                 
-                # Find the corresponding word in the ASR word list
-                target_asr_word = None
-                for w in asr_result["words"]:
-                    asr_norm = normalize_arabic(w["word"])
-                    # Check for exact match or high overlap/substring match
-                    if asr_norm and (asr_norm in norm_word or norm_word in asr_norm or 
-                                     (len(asr_norm) > 2 and len(norm_word) > 2 and 
-                                      (asr_norm[1:-1] in norm_word or norm_word[1:-1] in asr_norm))):
-                        target_asr_word = w
-                        break
+                # Fetch pre-aligned ASR word
+                target_asr_word = aligned_asr_words[idx]
                         
                 if target_asr_word:
                     start_sec = target_asr_word["start"]
