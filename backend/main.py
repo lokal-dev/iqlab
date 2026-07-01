@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import tempfile
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, BackgroundTasks
@@ -80,6 +81,22 @@ def align_words(db_words: list, asr_words: list) -> list:
         
     return aligned
 
+def highlight_target_letter(word: str, char: str, status: str, msg: str, start_sec: float, end_sec: float) -> str:
+    """
+    Highlights the target base character along with any accompanying Arabic diacritics (harakat).
+    """
+    pattern = re.escape(char) + r'[\u064b-\u0652\u0670\u0653\u0654]*'
+    match = re.search(pattern, word)
+    if match:
+        actual_str = match.group(0)
+        highlighted = (
+            f'<span class="makhraj-highlight makhraj-{status}" '
+            f'title="{msg}" '
+            f'data-start="{start_sec}" '
+            f'data-end="{end_sec}">{actual_str}</span>'
+        )
+        return re.sub(pattern, highlighted, word, count=1)
+    return word
 
 @app.post("/api/identify", response_model=IdentifyResponse)
 async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -167,15 +184,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.2
                         makhraj_res = analyze_makhraj_ha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ح</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ح', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ح', highlighted, 1)
                             
                     # 2. Ayn (ع)
                     elif has_ayn:
@@ -183,15 +194,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.3
                         makhraj_res = analyze_makhraj_ayn(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ع</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ع', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ع', highlighted, 1)
                             
                     # 3. Sad (ص)
                     elif has_sad:
@@ -199,15 +204,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_sad(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ص</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ص', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ص', highlighted, 1)
                             
                     # 4. Kha (خ)
                     elif has_kha:
@@ -215,15 +214,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_kha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">خ</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'خ', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('خ', highlighted, 1)
                             
                     # 5. Dhal (ذ)
                     elif has_dhal:
@@ -231,15 +224,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_dhal(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ذ</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ذ', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ذ', highlighted, 1)
                             
                     # 6. Tha (ث)
                     elif has_tha:
@@ -247,15 +234,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_tha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ث</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ث', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ث', highlighted, 1)
                             
                     # 7. Tah (ط)
                     elif has_tah:
@@ -263,15 +244,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_tah(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ط</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ط', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ط', highlighted, 1)
                             
                     # 8. Zha (ظ)
                     elif has_zha:
@@ -279,15 +254,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_zha(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ظ</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ظ', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ظ', highlighted, 1)
                             
                     # 9. Dad (ض)
                     elif has_dad:
@@ -295,15 +264,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_dad(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ض</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ض', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ض', highlighted, 1)
                             
                     # 10. Ghayn (غ)
                     elif has_ghayn:
@@ -311,15 +274,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_ghayn(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">غ</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'غ', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('غ', highlighted, 1)
                             
                     # 11. Qaf (ق)
                     elif has_qaf:
@@ -327,15 +284,9 @@ async def identify_audio(audio: UploadFile = File(...), db: Session = Depends(ge
                         rel_pos = char_idx / len(norm_word) if len(norm_word) > 0 and char_idx != -1 else 0.5
                         makhraj_res = analyze_makhraj_qaf(temp_trimmed_path, start_sec, end_sec, relative_pos=rel_pos)
                         if makhraj_res["status"] in ["pass", "fail"]:
-                            status = makhraj_res["status"]
-                            msg = makhraj_res["message"]
-                            highlighted = (
-                                f'<span class="makhraj-highlight makhraj-{status}" '
-                                f'title="{msg}" '
-                                f'data-start="{start_sec}" '
-                                f'data-end="{end_sec}">ق</span>'
+                            html_words[idx] = highlight_target_letter(
+                                html_words[idx], 'ق', makhraj_res["status"], makhraj_res["message"], start_sec, end_sec
                             )
-                            html_words[idx] = html_word.replace('ق', highlighted, 1)
                     
                     # Wrap word with start and end timestamps
                     html_words[idx] = f'<span class="verse-word" data-start="{start_sec}" data-end="{end_sec}">{html_words[idx]}</span>'
