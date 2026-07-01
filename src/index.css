@@ -1576,37 +1576,32 @@ input, textarea {
   background-color: oklch(0.75 0.135 85 / 0.08);
 }
 
-/* Audio Replay Button inside Selected Card */
-.audio-replay-btn {
+/* Circular play button in header */
+.header-play-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
-  background: var(--bg-overlay);
-  border: 1px solid var(--border-subtle);
-  color: var(--ink-secondary);
-  font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: var(--text-small);
-  font-weight: 500;
-  padding: var(--sp-2) var(--sp-4);
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border-radius: var(--r-full);
+  background: transparent;
+  border: 1.5px solid var(--accent-gold);
+  color: var(--accent-gold);
   cursor: pointer;
   transition: all var(--dur-normal) var(--ease-out);
-  margin-top: var(--sp-3);
-  align-self: flex-start;
+  padding: 0;
 }
 
-.audio-replay-btn:hover {
-  background: var(--bg-elevated);
-  border-color: var(--accent-indigo);
-  color: var(--ink-primary);
-  box-shadow: 0 0 12px var(--accent-indigo-bg);
+.header-play-btn:hover {
+  transform: scale(1.08);
+  background: oklch(0.75 0.135 85 / 0.12);
+  box-shadow: 0 0 8px oklch(0.75 0.135 85 / 0.3);
 }
 
-.audio-replay-btn.playing {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  background: oklch(0.75 0.135 85 / 0.08);
-  box-shadow: 0 0 12px oklch(0.75 0.135 85 / 0.2);
+.header-play-btn.playing {
+  background: var(--accent-gold);
+  color: var(--bg-base);
+  box-shadow: 0 0 12px oklch(0.75 0.135 85 / 0.4);
 }
 
 

@@ -421,9 +421,30 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
     >
       {/* ── Header: always visible ── */}
       <div className="verse-card-header">
-        <span className="verse-surah-badge">
-          {verse.surahNameAr} · {verse.surahName} : {verse.ayahNumber}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="verse-surah-badge">
+            {verse.surahNameAr} · {verse.surahName} : {verse.ayahNumber}
+          </span>
+          {audioUrl && (
+            <button 
+              className={`header-play-btn${isPlaying ? ' playing' : ''}`}
+              onClick={handlePlayAudio}
+              type="button"
+              aria-label={isPlaying ? 'Hentikan Suara' : 'Putar Rekamanmu'}
+            >
+              {isPlaying ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1"/>
+                  <rect x="14" y="4" width="4" height="16" rx="1"/>
+                </svg>
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ transform: 'translateX(0.5px)' }}>
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
         <div className="verse-card-header-right">
           <ConfidenceBar value={verse.confidence} />
           {isSelected && (
@@ -480,26 +501,6 @@ function VerseCard({ verse, isSelected, onSelect, audioBlob }) {
           <p className="verse-translation">{verse.translation}</p>
           <WaqfLegend />
           <div className="verse-card-footer">
-            {audioUrl && (
-              <button 
-                className={`audio-replay-btn${isPlaying ? ' playing' : ''}`}
-                onClick={handlePlayAudio}
-                type="button"
-                aria-label="Putar Rekaman Suaramu"
-              >
-                {isPlaying ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="4" width="4" height="16" rx="1"/>
-                    <rect x="14" y="4" width="4" height="16" rx="1"/>
-                  </svg>
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                )}
-                <span>{isPlaying ? 'Hentikan Suara' : 'Putar Rekamanmu'}</span>
-              </button>
-            )}
             <CopyButton verse={verse} />
           </div>
         </div>

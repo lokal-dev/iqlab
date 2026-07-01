@@ -70,8 +70,8 @@ def align_words(db_words: list, asr_words: list) -> list:
     
     for db_w in db_words:
         matched_word = None
-        # Look ahead up to 4 words in the ASR output
-        search_limit = min(asr_idx + 4, len(asr_words))
+        # Search the entire remaining ASR output to handle skips or gaps robustly
+        search_limit = len(asr_words)
         for j in range(asr_idx, search_limit):
             if is_match(db_w, asr_words[j]["word"]):
                 matched_word = asr_words[j]
