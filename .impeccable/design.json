@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-09T14:38:00Z",
+  "title": "Design System: iq.lab",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Aura Gold", "canonical": "oklch(0.75 0.135 85)", "tonalRamp": ["oklch(0.20 0.040 85)", "oklch(0.30 0.060 85)", "oklch(0.40 0.080 85)", "oklch(0.50 0.100 85)", "oklch(0.60 0.120 85)", "oklch(0.75 0.135 85)", "oklch(0.85 0.090 85)", "oklch(0.95 0.030 85)"] },
+      "neutral-bg": { "role": "neutral", "displayName": "Deep Base", "canonical": "oklch(0.10 0.025 270)", "tonalRamp": ["oklch(0.10 0.025 270)", "oklch(0.20 0.020 270)", "oklch(0.30 0.020 270)", "oklch(0.45 0.015 270)", "oklch(0.60 0.015 270)", "oklch(0.75 0.010 270)", "oklch(0.85 0.005 270)", "oklch(0.95 0.005 270)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display Sans", "purpose": "Brand headers and display copy." },
+      "body": { "displayName": "Body Sans", "purpose": "Prose translation, description, and Latin labels." }
+    },
+    "shadows": [
+      { "name": "glow-gold", "value": "0 0 32px oklch(0.75 0.135 85 / 0.3)", "purpose": "Active select backglow." }
+    ],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Fluid transitions for playback." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Circular Play Control",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Round replay button next to the surah badge in the header.",
+      "html": "<button class=\"ds-header-play-btn\"> \n  <svg width=\"10\" height=\"10\" viewBox=\"0 0 24 24\" fill=\"currentColor\">\n    <path d=\"M8 5v14l11-7z\"></path>\n  </svg>\n</button>",
+      "css": ".ds-header-play-btn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 26px;\n  height: 26px;\n  border-radius: 9999px;\n  background: transparent;\n  border: 1.5px solid #e5a21e;\n  color: #e5a21e;\n  cursor: pointer;\n  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);\n  padding: 0;\n}\n.ds-header-play-btn:hover {\n  transform: scale(1.08);\n  background: rgba(229, 162, 30, 0.12);\n  box-shadow: 0 0 8px rgba(229, 162, 30, 0.3);\n}\n.ds-header-play-btn.playing {\n  background: #e5a21e;\n  color: #0d0b17;\n  box-shadow: 0 0 12px rgba(229, 162, 30, 0.4);\n}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quran Laboratory",
+    "overview": "iq.lab is a modern Quranic verse identification interface that acts as an automated, empathetic peer. The design language merges clean, technical dark-mode grids and precise waveforms with classical, elegant Arabic typography.",
+    "keyCharacteristics": [
+      "Dark Mode by Default: Deep purple-black base with gold and indigo accents.",
+      "Typographic Focus: High contrast for Arabic Uthmani scripts paired with clean sans-serif Latin UI elements.",
+      "Fluid Reactive Transitions: 150-250ms exponential easing on interactive state changes."
+    ],
+    "rules": [
+      { "name": "The Golden Rarity Rule", "body": "The primary gold accent must carry less than 10% of any given screen area. Its visual weight is preserved by keeping the surrounding canvas dark and neutral.", "section": "colors" },
+      { "name": "The Diacritic Breathing Room Rule", "body": "Any element rendering Uthmani Arabic script must have a line-height of at least 2.0 and relative padding to prevent combining characters (harakat) from clipping adjacent rows.", "section": "typography" }
+    ],
+    "dos": [
+      "Do wrap every Arabic letter and its accompanying diacritics (harakat) in the same HTML makhraj-highlight span to ensure cohesive coloring.",
+      "Do use a minimum line-height: 2.0 on all Quranic verses to prevent diacritics from overlapping.",
+      "Do transition word highlighting during audio playback sequentially from right-to-left using oklch transitions."
+    ],
+    "donts": [
+      "Don't use neon-colored gradients for headers or text clips.",
+      "Don't use sharp square corners for cards or buttons; keep them rounded (12px or full).",
+      "Don't add side-stripe borders (e.g. border-left: 4px solid gold) on active cards; rely on full borders and gold back-glows."
+    ]
+  }
+}
